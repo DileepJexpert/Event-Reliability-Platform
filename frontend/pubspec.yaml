@@ -1,0 +1,22 @@
+name: event_reliability_console
+description: Operations console for the Event Reliability Platform (Brod).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2          # REST + SSE streaming
+  provider: ^6.1.2      # state management (no business logic, just view state)
+  intl: ^0.19.0         # timestamp formatting
+  flutter_appauth: ^8.0.0   # OIDC / SSO login (Authorization Code + PKCE)
+  flutter_secure_storage: ^9.2.2   # persist tokens
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
