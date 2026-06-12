@@ -1,0 +1,93 @@
+spring:
+  application:
+    name: event-reliability-service
+
+  # Classification rules live in their own file so ops can edit them without touching app config (§11).
+  config:
+    import: optional:classpath:classification-rules.yml
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${RELIABILITY_GROUP_ID:event-reliability}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
+      properties:
+        max.poll.records: 100
+        # Pattern-detection windows and the pause/seek delay loop both need a forgiving poll interval.
+        max.poll.interval.ms: 300000
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.ByteArraySerializer
+      acks: all
+      properties:
+        # Idempotent producer (§18.4): exactly-once-into-topic semantics for republish + state writes.
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    listener:
+      ack-mode: record
+      concurrency: ${RELIABILITY_LISTENER_CONCURRENCY:3}
+      # Provisioner creates topics at startup; tolerate the brief window before they appear.
+      missing-topics-fatal: false
+    streams:
+      application-id: ${RELIABILITY_STREAMS_APP_ID:event-reliability-streams}
+      state-dir: ${RELIABILITY_STREAMS_STATE_DIR:/tmp/kafka-streams/event-reliability}
+      properties:
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        commit.interval.ms: 1000
+        num.stream.threads: 2
+        processing.guarantee: at_least_once
+        # Tolerate transient deserialization issues in the detection stream without crashing it.
+        default.deserialization.exception.handler: org.apache.kafka.streams.errors.LogAndContinueExceptionHandler
+
+# ---- Self-contained observability (§14): Micrometer + Actuator, no external APM ----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# ---- Platform configuration (§4, §8, §10, §14) ----
+reliability:
+  topic-prefix: ${RELIABILITY_TOPIC_PREFIX:reliability.}
+  topics:
+    partitions: ${RELIABILITY_TOPIC_PARTITIONS:3}
+    replication-factor: ${RELIABILITY_TOPIC_RF:1}
+    audit-retention-ms: 7776000000   # 90 days
+  retry:
+    tiers:
+      - { name: "5s", delay: 5s }
+      - { name: "1m", delay: 1m }
+      - { name: "5m", delay: 5m }
+      - { name: "30m", delay: 30m }
+  pattern:
+    window: ${RELIABILITY_PATTERN_WINDOW:5m}
+    threshold: ${RELIABILITY_PATTERN_THRESHOLD:500}
+    grace: 1m
+  notifier:
+    enabled: ${RELIABILITY_NOTIFIER_ENABLED:false}
+    channel: ${RELIABILITY_NOTIFIER_CHANNEL:log}    # log | webhook
+    webhook-url: ${RELIABILITY_NOTIFIER_WEBHOOK_URL:}
+  housekeeping:
+    stale-sweep-interval: 1h
+    terminal-retention: 30d
+  replay:
+    destination: ${RELIABILITY_REPLAY_DESTINATION:original}   # original | <fixed-topic>
+    bulk-batch-size: 1000
+
+logging:
+  level:
+    com.eventreliability: INFO

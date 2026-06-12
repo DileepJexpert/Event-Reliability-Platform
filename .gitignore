@@ -1,0 +1,40 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter / Dart
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/build/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/ios/Pods/
+frontend/android/.gradle/
+frontend/**/GeneratedPluginRegistrant.*
+
+# Local Kafka data
+kafka-data/
+streams-state/
+/tmp/kafka-streams/
+
+# Env
+.env
+*.local
