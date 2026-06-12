@@ -92,6 +92,7 @@ public class TopicProvisioner implements SmartLifecycle {
         list.add(compacted(topics.state(), partitions, rf));
         list.add(compacted(topics.viewsParked(), partitions, rf));
         list.add(compacted(topics.viewsIncidents(), partitions, rf));
+        list.add(compacted(topics.viewsAudit(), partitions, rf));
 
         // Append-only immutable audit log: compaction OFF, long retention.
         list.add(appendOnly(topics.audit(), partitions, rf, props.topics().auditRetentionMs()));

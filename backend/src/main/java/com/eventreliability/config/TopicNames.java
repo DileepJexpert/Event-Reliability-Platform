@@ -71,6 +71,14 @@ public class TopicNames {
         return n("views.incidents");
     }
 
+    /**
+     * Compacted materialised view of the per-correlation-id audit timeline, loaded as a GlobalKTable
+     * so the failure-detail endpoint can return the full audit history with a full-local read (§9, §15).
+     */
+    public String viewsAudit() {
+        return n("views.audit");
+    }
+
     /** Control plane: replay / bulk-replay / quarantine commands with acting user (§13). */
     public String controlCommands() {
         return n("control.commands");
@@ -99,6 +107,7 @@ public class TopicNames {
         m.put("audit", audit());
         m.put("viewsParked", viewsParked());
         m.put("viewsIncidents", viewsIncidents());
+        m.put("viewsAudit", viewsAudit());
         m.put("controlCommands", controlCommands());
         m.put("incidents", incidents());
         return m;
