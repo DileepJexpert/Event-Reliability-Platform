@@ -90,7 +90,6 @@ public class TopicProvisioner implements SmartLifecycle {
 
         // System of record + materialised views: log compaction.
         list.add(compacted(topics.state(), partitions, rf));
-        list.add(compacted(topics.viewsParked(), partitions, rf));
         list.add(compacted(topics.viewsIncidents(), partitions, rf));
         list.add(compacted(topics.viewsAudit(), partitions, rf));
 

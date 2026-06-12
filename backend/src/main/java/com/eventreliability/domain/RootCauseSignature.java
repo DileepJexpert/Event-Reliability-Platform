@@ -33,6 +33,19 @@ public final class RootCauseSignature {
         return of(record.exceptionClass(), record.originalTopic(), record.schemaVersion());
     }
 
+    /** Extract the source topic encoded in a signature ({@code Exception@topic#vN} → {@code topic}). */
+    public static String sourceTopicOf(String signature) {
+        if (signature == null) {
+            return "unknown-topic";
+        }
+        int at = signature.indexOf('@');
+        if (at < 0) {
+            return "unknown-topic";
+        }
+        int hash = signature.indexOf('#', at);
+        return hash < 0 ? signature.substring(at + 1) : signature.substring(at + 1, hash);
+    }
+
     private static String simpleName(String exceptionClass) {
         if (exceptionClass == null || exceptionClass.isBlank()) {
             return "UnknownException";

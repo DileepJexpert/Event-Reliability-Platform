@@ -5,6 +5,7 @@ import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.AuditEvent;
 import com.eventreliability.domain.AuditTimeline;
 import com.eventreliability.domain.FailureRecord;
+import com.eventreliability.domain.Incident;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.kafka.common.serialization.Serde;
@@ -70,5 +71,17 @@ public class StreamsTopology {
                 Consumed.with(keySerde, timelineSerde),
                 Materialized.<String, AuditTimeline, KeyValueStore<Bytes, byte[]>>as(StoreNames.AUDIT_TIMELINE)
                         .withKeySerde(keySerde).withValueSerde(timelineSerde));
+    }
+
+    /** Loads the compacted incidents view (written by the pattern-detection topology) as a GlobalKTable. */
+    @Bean
+    public GlobalKTable<String, Incident> incidentsGlobalTable(
+            StreamsBuilder builder, ObjectMapper mapper, TopicNames topics) {
+        Serde<String> keySerde = Serdes.String();
+        Serde<Incident> valueSerde = new JsonSerde<>(mapper, Incident.class);
+        return builder.globalTable(topics.viewsIncidents(),
+                Consumed.with(keySerde, valueSerde),
+                Materialized.<String, Incident, KeyValueStore<Bytes, byte[]>>as(StoreNames.INCIDENTS)
+                        .withKeySerde(keySerde).withValueSerde(valueSerde));
     }
 }

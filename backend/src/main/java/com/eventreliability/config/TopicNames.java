@@ -69,11 +69,6 @@ public class TopicNames {
         return n("audit");
     }
 
-    /** Compacted materialised view of parked messages, loaded as a GlobalKTable (§9). */
-    public String viewsParked() {
-        return n("views.parked");
-    }
-
     /** Compacted materialised view of active incidents, loaded as a GlobalKTable (§9). */
     public String viewsIncidents() {
         return n("views.incidents");
@@ -113,7 +108,6 @@ public class TopicNames {
         m.put("businessRouted", businessRouted());
         m.put("state", state());
         m.put("audit", audit());
-        m.put("viewsParked", viewsParked());
         m.put("viewsIncidents", viewsIncidents());
         m.put("viewsAudit", viewsAudit());
         m.put("controlCommands", controlCommands());

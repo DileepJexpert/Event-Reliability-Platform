@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.eventreliability.domain.AuditTimeline;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
+import com.eventreliability.domain.MessageState;
 
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StoreQueryParameters;
@@ -60,8 +61,16 @@ public class ReadModels {
         return incidentsStore().map(this::drain).orElseGet(List::of);
     }
 
+    /**
+     * Messages awaiting human review. Served by filtering the failures GlobalKTable on the parked
+     * lifecycle states — the compacted state GlobalKTable already provides full-local reads (§9), so
+     * a separate parked view would be redundant (and Streams forbids registering the state topic as a
+     * second source alongside the failures global table).
+     */
     public List<FailureRecord> parked() {
-        return parkedStore().map(this::drain).orElseGet(List::of);
+        return allFailures().stream()
+                .filter(r -> r.state() != null && MessageState.PARKED_STATES.contains(r.state()))
+                .toList();
     }
 
     // ----- typed store accessors -----
@@ -76,10 +85,6 @@ public class ReadModels {
 
     private Optional<ReadOnlyKeyValueStore<String, Incident>> incidentsStore() {
         return store(StoreNames.INCIDENTS);
-    }
-
-    private Optional<ReadOnlyKeyValueStore<String, FailureRecord>> parkedStore() {
-        return store(StoreNames.PARKED);
     }
 
     private <V> Optional<ReadOnlyKeyValueStore<String, V>> store(String name) {

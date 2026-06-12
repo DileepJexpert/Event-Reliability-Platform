@@ -17,7 +17,4 @@ public final class StoreNames {
 
     /** GlobalKTable over {@code reliability.views.incidents} — active systemic incidents. */
     public static final String INCIDENTS = "incidents-store";
-
-    /** GlobalKTable over {@code reliability.views.parked} — messages awaiting human review. */
-    public static final String PARKED = "parked-store";
 }
