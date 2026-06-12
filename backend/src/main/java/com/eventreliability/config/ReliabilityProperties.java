@@ -40,7 +40,13 @@ public record ReliabilityProperties(
 
     /** Tiered retry configuration (§10). Each tier is its own topic to avoid head-of-line blocking. */
     public record Retry(
-            @DefaultValue List<Tier> tiers
+            @DefaultValue List<Tier> tiers,
+            /**
+             * Maximum single pause applied by the delay loop before it re-polls and re-checks
+             * eligibility (§18.1). Long tier delays are reached by repeatedly pausing for at most
+             * this window, so the consumer keeps polling and never risks {@code max.poll.interval}.
+             */
+            @DefaultValue("PT30S") Duration maxPause
     ) {
         public Retry {
             if (tiers == null || tiers.isEmpty()) {
@@ -86,7 +92,14 @@ public record ReliabilityProperties(
 
     /** Housekeeping cadence. {@code @Scheduled} is allowed here, NOT for the retry clock (§10/§18.2). */
     public record Housekeeping(
-            @DefaultValue("PT1H") Duration staleSweepInterval,
+            /** Sweep period in millis (kept as a plain long so {@code @Scheduled} can read it directly). */
+            @DefaultValue("3600000") long staleSweepIntervalMs,
+            /**
+             * After a retry is re-driven the platform cannot observe success directly (onboarded apps
+             * only adopt the failure-header contract, not a success callback). If a re-driven message
+             * does not come back as a new failure within this grace, it is presumed RESOLVED (§6.2).
+             */
+            @DefaultValue("PT2M") Duration resolveGrace,
             /** Terminal-and-aged state records older than this are tombstoned (§9). */
             @DefaultValue("P30D") Duration terminalRetention
     ) {}

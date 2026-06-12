@@ -1,6 +1,7 @@
 package com.eventreliability.config;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Component;
 public class TopicNames {
 
     private final String prefix;
+    private final List<String> retryTierNames;
 
     public TopicNames(ReliabilityProperties props) {
         this.prefix = props.topicPrefix();
+        this.retryTierNames = props.retry().tierNames();
     }
 
     private String n(String suffix) {
@@ -39,6 +42,11 @@ public class TopicNames {
     /** One retry topic per tier (§10), e.g. {@code reliability.retry.5s}. */
     public String retry(String tierName) {
         return n("retry." + tierName);
+    }
+
+    /** All configured retry-tier topics — used by the delay-loop listener's subscription. */
+    public String[] allRetryTopics() {
+        return retryTierNames.stream().map(this::retry).toArray(String[]::new);
     }
 
     /** Terminal park / DLT for human review (§8) — exhausted retries and UNKNOWN messages. */

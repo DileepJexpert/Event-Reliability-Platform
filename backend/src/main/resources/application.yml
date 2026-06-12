@@ -68,6 +68,7 @@ reliability:
     replication-factor: ${RELIABILITY_TOPIC_RF:1}
     audit-retention-ms: 7776000000   # 90 days
   retry:
+    max-pause: 30s
     tiers:
       - { name: "5s", delay: 5s }
       - { name: "1m", delay: 1m }
@@ -82,7 +83,8 @@ reliability:
     channel: ${RELIABILITY_NOTIFIER_CHANNEL:log}    # log | webhook
     webhook-url: ${RELIABILITY_NOTIFIER_WEBHOOK_URL:}
   housekeeping:
-    stale-sweep-interval: 1h
+    stale-sweep-interval-ms: 3600000   # 1h
+    resolve-grace: 2m
     terminal-retention: 30d
   replay:
     destination: ${RELIABILITY_REPLAY_DESTINATION:original}   # original | <fixed-topic>

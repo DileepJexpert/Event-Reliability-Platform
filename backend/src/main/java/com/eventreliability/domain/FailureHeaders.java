@@ -42,6 +42,13 @@ public final class FailureHeaders {
     /** Internal: which retry tier a scheduled message belongs to. */
     public static final String RETRY_TIER = "x-retry-tier";
 
+    /**
+     * Optional: the original Kafka message key, so a re-drive can preserve source-topic partitioning
+     * and ordering. The base header contract does not carry the key; onboarded apps that need
+     * ordering on re-drive may set this.
+     */
+    public static final String ORIGINAL_KEY = "x-original-key";
+
     // ----- read helpers -----
 
     public static String getString(Headers headers, String key) {
