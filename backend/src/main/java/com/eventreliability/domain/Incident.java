@@ -33,4 +33,10 @@ public record Incident(
 
     public static final String ACTIVE = "ACTIVE";
     public static final String RESOLVED = "RESOLVED";
+
+    /** A copy marked RESOLVED — written to the incidents view after the cohort is bulk-replayed. */
+    public Incident resolved() {
+        return new Incident(id, rootCause, sourceTopic, count, threshold, windowStart, windowEnd,
+                firstSeenAt, RESOLVED, exampleCorrelationId);
+    }
 }

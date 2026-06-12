@@ -1,6 +1,7 @@
 package com.eventreliability.domain;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
@@ -107,6 +108,19 @@ public final class FailureHeaders {
             for (Header h : src) {
                 out.add(h.key(), h.value());
             }
+        }
+        return out;
+    }
+
+    /** Rebuild Kafka headers from the string map persisted on a {@code FailureRecord} (for replay). */
+    public static Headers fromMap(Map<String, String> map) {
+        RecordHeaders out = new RecordHeaders();
+        if (map != null) {
+            map.forEach((k, v) -> {
+                if (v != null) {
+                    out.add(k, v.getBytes(StandardCharsets.UTF_8));
+                }
+            });
         }
         return out;
     }
