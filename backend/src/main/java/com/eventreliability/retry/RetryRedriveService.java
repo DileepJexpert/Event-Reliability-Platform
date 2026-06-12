@@ -7,6 +7,7 @@ import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.ingestion.FailureRecordFactory;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.routing.ParkingService;
 import com.eventreliability.state.StateService;
 
@@ -40,16 +41,19 @@ public class RetryRedriveService {
     private final AuditService auditService;
     private final FailureRecordFactory recordFactory;
     private final ParkingService parkingService;
+    private final PlatformMetrics metrics;
 
     public RetryRedriveService(ReliabilityProperties props, KafkaPublisher publisher,
                                StateService stateService, AuditService auditService,
-                               FailureRecordFactory recordFactory, ParkingService parkingService) {
+                               FailureRecordFactory recordFactory, ParkingService parkingService,
+                               PlatformMetrics metrics) {
         this.props = props;
         this.publisher = publisher;
         this.stateService = stateService;
         this.auditService = auditService;
         this.recordFactory = recordFactory;
         this.parkingService = parkingService;
+        this.metrics = metrics;
     }
 
     public void redrive(ConsumerRecord<String, byte[]> record) {
@@ -94,6 +98,7 @@ public class RetryRedriveService {
                 .lastError(null)
                 .build();
         stateService.put(updated);
+        metrics.retryRedriven();
         auditService.system(correlationId,
                 existing != null ? existing.state() : MessageState.RETRY_SCHEDULED, MessageState.RETRYING,
                 "REDRIVEN", "re-driven to " + destination + " as attempt " + nextAttempt

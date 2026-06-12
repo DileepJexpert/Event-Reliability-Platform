@@ -4,6 +4,7 @@ import com.eventreliability.audit.AuditService;
 import com.eventreliability.config.ReliabilityProperties;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.state.StateService;
 import com.eventreliability.streams.ReadModels;
 
@@ -35,13 +36,15 @@ public class StaleCaseSweeper {
     private final StateService stateService;
     private final AuditService auditService;
     private final ReliabilityProperties props;
+    private final PlatformMetrics metrics;
 
     public StaleCaseSweeper(ReadModels readModels, StateService stateService,
-                            AuditService auditService, ReliabilityProperties props) {
+                            AuditService auditService, ReliabilityProperties props, PlatformMetrics metrics) {
         this.readModels = readModels;
         this.stateService = stateService;
         this.auditService = auditService;
         this.props = props;
+        this.metrics = metrics;
     }
 
     @Scheduled(
@@ -63,6 +66,7 @@ public class StaleCaseSweeper {
                 stateService.put(r.toBuilder().state(MessageState.RESOLVED).build());
                 auditService.system(r.correlationId(), MessageState.RETRYING, MessageState.RESOLVED,
                         "RESOLVED", "presumed resolved — no re-failure within grace after re-drive");
+                metrics.resolved();
                 resolved++;
             } else if (r.state().isTerminal() && now - updatedAt > terminalRetention) {
                 stateService.forget(r.correlationId());

@@ -5,6 +5,7 @@ import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.ingestion.FailureRecordFactory;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.routing.RoutingService;
 import com.eventreliability.state.StateService;
 
@@ -35,15 +36,17 @@ public class ClassificationListener {
     private final StateService stateService;
     private final AuditService auditService;
     private final RoutingService routingService;
+    private final PlatformMetrics metrics;
 
     public ClassificationListener(FailureRecordFactory recordFactory, Classifier classifier,
                                   StateService stateService, AuditService auditService,
-                                  RoutingService routingService) {
+                                  RoutingService routingService, PlatformMetrics metrics) {
         this.recordFactory = recordFactory;
         this.classifier = classifier;
         this.stateService = stateService;
         this.auditService = auditService;
         this.routingService = routingService;
+        this.metrics = metrics;
     }
 
     @KafkaListener(topics = "#{@topicNames.classify()}", id = "classification")
@@ -79,6 +82,7 @@ public class ClassificationListener {
                 "CLASSIFIED",
                 result.classification() + " via rule '" + result.matchedRule() + "' → " + result.action());
 
+        metrics.classified(result.classification());
         routingService.route(classified, record.value(), h);
 
         log.debug("Classified {} as {} ({})", correlationId, result.classification(), result.matchedRule());

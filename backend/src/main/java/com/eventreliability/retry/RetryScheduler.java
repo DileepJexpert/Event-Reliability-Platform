@@ -11,6 +11,7 @@ import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.routing.ParkingService;
 import com.eventreliability.state.StateService;
 
@@ -42,15 +43,18 @@ public class RetryScheduler {
     private final StateService stateService;
     private final AuditService auditService;
     private final ParkingService parkingService;
+    private final PlatformMetrics metrics;
 
     public RetryScheduler(ReliabilityProperties props, TopicNames topics, KafkaPublisher publisher,
-                          StateService stateService, AuditService auditService, ParkingService parkingService) {
+                          StateService stateService, AuditService auditService, ParkingService parkingService,
+                          PlatformMetrics metrics) {
         this.tiers = props.retry().tiers();
         this.topics = topics;
         this.publisher = publisher;
         this.stateService = stateService;
         this.auditService = auditService;
         this.parkingService = parkingService;
+        this.metrics = metrics;
     }
 
     /**
@@ -85,6 +89,7 @@ public class RetryScheduler {
                 .eligibleAt(eligibleAt)
                 .build();
         stateService.put(updated);
+        metrics.retryScheduled();
         auditService.system(record.correlationId(), record.state(), MessageState.RETRY_SCHEDULED,
                 "RETRY_SCHEDULED",
                 "tier " + tier.name() + " (attempt " + attempt + "/" + tiers.size()

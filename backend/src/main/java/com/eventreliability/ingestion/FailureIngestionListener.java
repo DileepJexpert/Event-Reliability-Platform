@@ -8,6 +8,7 @@ import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.state.StateService;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -37,14 +38,17 @@ public class FailureIngestionListener {
     private final AuditService auditService;
     private final KafkaPublisher publisher;
     private final TopicNames topics;
+    private final PlatformMetrics metrics;
 
     public FailureIngestionListener(FailureRecordFactory recordFactory, StateService stateService,
-                                    AuditService auditService, KafkaPublisher publisher, TopicNames topics) {
+                                    AuditService auditService, KafkaPublisher publisher, TopicNames topics,
+                                    PlatformMetrics metrics) {
         this.recordFactory = recordFactory;
         this.stateService = stateService;
         this.auditService = auditService;
         this.publisher = publisher;
         this.topics = topics;
+        this.metrics = metrics;
     }
 
     @KafkaListener(topics = "#{@topicNames.inbound()}", id = "ingestion")
@@ -76,6 +80,7 @@ public class FailureIngestionListener {
         publisher.send(new ProducerRecord<>(topics.classify(), null, correlationId,
                 record.value(), record.headers()));
 
+        metrics.ingested();
         log.debug("Ingested failure {} (attempt {}) from {}", correlationId, rec.attemptCount(),
                 rec.originalTopic());
     }

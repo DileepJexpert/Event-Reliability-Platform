@@ -12,6 +12,7 @@ import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.config.TopicNames;
+import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.routing.ParkingService;
 import com.eventreliability.state.StateService;
 import com.eventreliability.streams.ReadModels;
@@ -40,10 +41,11 @@ public class ReplayService {
     private final ReadModels readModels;
     private final AuditService auditService;
     private final ParkingService parkingService;
+    private final PlatformMetrics metrics;
 
     public ReplayService(ReliabilityProperties props, TopicNames topics, KafkaPublisher publisher,
                          StateService stateService, ReadModels readModels, AuditService auditService,
-                         ParkingService parkingService) {
+                         ParkingService parkingService, PlatformMetrics metrics) {
         this.props = props;
         this.topics = topics;
         this.publisher = publisher;
@@ -51,6 +53,7 @@ public class ReplayService {
         this.readModels = readModels;
         this.auditService = auditService;
         this.parkingService = parkingService;
+        this.metrics = metrics;
     }
 
     public void replaySingle(String correlationId, String actor, String reason) {
@@ -59,7 +62,9 @@ public class ReplayService {
             log.warn("Replay command for unknown correlation id {}", correlationId);
             return;
         }
-        doReplay(record, actor, reason != null ? reason : "single replay");
+        if (doReplay(record, actor, reason != null ? reason : "single replay")) {
+            metrics.replay("single");
+        }
     }
 
     public void bulkReplay(String incidentId, String actor, String reason) {
@@ -80,6 +85,9 @@ public class ReplayService {
             if (doReplay(record, actor, "bulk-replay of incident " + incidentId)) {
                 replayed++;
             }
+        }
+        if (replayed > 0) {
+            metrics.replay("bulk");
         }
 
         // Mark the incident resolved in the compacted view, and audit the bulk action at incident level.
