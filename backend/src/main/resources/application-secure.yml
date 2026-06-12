@@ -1,0 +1,15 @@
+# Activated with --spring.profiles.active=secure (§17).
+#
+# Turns on the OIDC resource-server security chain (SecurityConfig) with role-based authorization:
+#   - GET  /api/**  -> VIEWER or OPERATOR
+#   - POST /api/**  -> OPERATOR (replay / quarantine / bulk-replay)
+# Point it at the bank SSO issuer; tokens are validated against its JWK set, and Spring authorities
+# are derived from the token's `roles` claim.
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:}
+          # Alternatively, set the JWK Set URI directly:
+          # jwk-set-uri: ${OIDC_JWK_SET_URI:}
