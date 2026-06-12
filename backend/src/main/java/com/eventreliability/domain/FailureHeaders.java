@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.header.internals.RecordHeaders;
 
 /**
  * The failure-header contract (§6.3) — the only thing owning apps must adopt. When a business
@@ -90,5 +91,16 @@ public final class FailureHeaders {
 
     public static void put(Headers headers, String key, long value) {
         put(headers, key, Long.toString(value));
+    }
+
+    /** A mutable copy of the headers, so the platform can stamp its own headers without mutating the source. */
+    public static Headers copy(Headers src) {
+        RecordHeaders out = new RecordHeaders();
+        if (src != null) {
+            for (Header h : src) {
+                out.add(h.key(), h.value());
+            }
+        }
+        return out;
     }
 }

@@ -1,0 +1,40 @@
+# Externalised classification rule table (§11).
+#
+# Rules are evaluated top-to-bottom; the FIRST rule whose patterns match wins. Patterns are
+# case-insensitive regular expressions matched against the whole value, so use ".*foo.*" for
+# substring matching. Either pattern may be omitted; a rule with no patterns is a catch-all.
+#
+# Edit this file to extend classification without redeploying the service (it is imported by
+# application.yml via spring.config.import).
+reliability:
+  classification:
+    rules:
+      - name: timeout-transient
+        exception-pattern: ".*(Timeout|TimeoutException|TimedOut|DeadlineExceeded).*"
+        classification: TRANSIENT
+        action: AUTO_RETRY
+        reason: "Downstream timeout — expected to self-heal on retry"
+
+      - name: transient-rejection
+        exception-pattern: ".*(TemporarilyUnavailable|ServiceUnavailable|TooManyRequests|Throttl|RetryableException|503).*"
+        classification: TRANSIENT
+        action: AUTO_RETRY
+        reason: "Transient downstream rejection — retry after backoff"
+
+      - name: infrastructure
+        exception-pattern: ".*(ConnectException|ConnectionException|UnknownHost|BrokerNotAvailable|NotLeaderOrFollower|DisconnectException|IOException|SocketException|ResourceExhausted|OutOfMemory).*"
+        classification: INFRASTRUCTURE
+        action: AUTO_RETRY
+        reason: "Connectivity / infrastructure issue — retry after backoff"
+
+      - name: poison-deserialization
+        exception-pattern: ".*(DeserializationException|SerializationException|JsonParseException|JsonMappingException|MismatchedInputException|RecordDeserialization|ClassCastException|NumberFormatException|UnrecognizedProperty).*"
+        classification: POISON
+        action: QUARANTINE
+        reason: "Malformed / undeserializable message — quarantine to avoid a crash loop"
+
+      - name: business-rejection
+        exception-pattern: ".*(BusinessException|AccountFrozen|LimitExceeded|MandateExpired|InsufficientFunds|RejectedException|ValidationException|PolicyViolation|Forbidden).*"
+        classification: BUSINESS
+        action: ROUTE_TO_OWNER
+        reason: "Valid business rejection — route to owner; retrying will not help"

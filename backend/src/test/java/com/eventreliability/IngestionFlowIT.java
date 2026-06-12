@@ -5,6 +5,7 @@ import java.time.Duration;
 import java.util.UUID;
 
 import com.eventreliability.config.TopicNames;
+import com.eventreliability.domain.FailureClassification;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
@@ -23,10 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Boots the entire Spring context against an in-process Kafka broker and drives one failure through
- * ingestion. This is the core wiring smoke test: it proves the topic provisioner, the byte[]
- * producer/consumer wiring, the ingestion listener, the compacted state topic and the GlobalKTable
- * read model all start and cooperate end to end.
+ * Boots the entire Spring context against an in-process Kafka broker and drives failures through
+ * ingestion → classification → routing. Proves the topic provisioner, the byte[] producer/consumer
+ * wiring, the listeners, the compacted state topic and the GlobalKTable read model cooperate end to
+ * end, and that each taxonomy class lands in the correct lane.
  */
 @SpringBootTest
 @EmbeddedKafka(partitions = 1, topics = {})
@@ -48,28 +49,69 @@ class IngestionFlowIT {
     private ReadModels readModels;
 
     @Test
-    void ingestedFailureBecomesQueryableState() {
-        // Read model must come up.
+    void transientFailureIsClassifiedAndScheduledForRetry() {
         await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("java.net.SocketTimeoutException", "payments.events", 1);
 
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            FailureRecord record = readModels.failure(id).orElse(null);
+            assertThat(record).isNotNull();
+            assertThat(record.classification()).isEqualTo(FailureClassification.TRANSIENT);
+            assertThat(record.state()).isEqualTo(MessageState.RETRY_SCHEDULED);
+            assertThat(record.currentTier()).isEqualTo("5s");
+            assertThat(record.rootCauseSignature()).contains("SocketTimeoutException");
+        });
+    }
+
+    @Test
+    void poisonFailureIsQuarantined() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("org.apache.kafka.common.errors.SerializationException", "orders.events", 1);
+
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            FailureRecord record = readModels.failure(id).orElse(null);
+            assertThat(record).isNotNull();
+            assertThat(record.classification()).isEqualTo(FailureClassification.POISON);
+            assertThat(record.state()).isEqualTo(MessageState.QUARANTINED_POISON);
+        });
+    }
+
+    @Test
+    void businessFailureIsRoutedToOwner() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("com.bank.payments.AccountFrozenException", "payments.events", 1);
+
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            FailureRecord record = readModels.failure(id).orElse(null);
+            assertThat(record).isNotNull();
+            assertThat(record.classification()).isEqualTo(FailureClassification.BUSINESS);
+            assertThat(record.state()).isEqualTo(MessageState.ROUTED_BUSINESS);
+        });
+    }
+
+    @Test
+    void unknownFailureIsParkedForReview() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("com.bank.payments.WeirdUndocumentedException", "payments.events", 1);
+
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            FailureRecord record = readModels.failure(id).orElse(null);
+            assertThat(record).isNotNull();
+            assertThat(record.classification()).isEqualTo(FailureClassification.UNKNOWN);
+            assertThat(record.state()).isEqualTo(MessageState.PARKED_UNKNOWN);
+        });
+    }
+
+    private String send(String exceptionClass, String originalTopic, int attempt) {
         String correlationId = "corr-" + UUID.randomUUID();
         RecordHeaders headers = new RecordHeaders();
         headers.add(FailureHeaders.CORRELATION_ID, correlationId.getBytes(StandardCharsets.UTF_8));
-        headers.add(FailureHeaders.ORIGINAL_TOPIC, "payments.events".getBytes(StandardCharsets.UTF_8));
-        headers.add(FailureHeaders.EXCEPTION_CLASS,
-                "java.net.SocketTimeoutException".getBytes(StandardCharsets.UTF_8));
-        headers.add(FailureHeaders.ATTEMPT_COUNT, "1".getBytes(StandardCharsets.UTF_8));
+        headers.add(FailureHeaders.ORIGINAL_TOPIC, originalTopic.getBytes(StandardCharsets.UTF_8));
+        headers.add(FailureHeaders.EXCEPTION_CLASS, exceptionClass.getBytes(StandardCharsets.UTF_8));
+        headers.add(FailureHeaders.ATTEMPT_COUNT, Integer.toString(attempt).getBytes(StandardCharsets.UTF_8));
         headers.add(FailureHeaders.SOURCE_APP, "payment-service".getBytes(StandardCharsets.UTF_8));
-
         byte[] payload = "{\"amount\":100}".getBytes(StandardCharsets.UTF_8);
         kafkaTemplate.send(new ProducerRecord<>(topics.inbound(), null, correlationId, payload, headers));
-
-        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
-            FailureRecord record = readModels.failure(correlationId).orElse(null);
-            assertThat(record).isNotNull();
-            assertThat(record.state()).isEqualTo(MessageState.RECEIVED);
-            assertThat(record.originalTopic()).isEqualTo("payments.events");
-            assertThat(record.rootCauseSignature()).contains("SocketTimeoutException");
-        });
+        return correlationId;
     }
 }
