@@ -5,7 +5,8 @@ import com.eventreliability.api.dto.ActionRequest;
 import com.eventreliability.api.dto.FailureDetailDto;
 import com.eventreliability.api.dto.FailureSummaryDto;
 import com.eventreliability.api.dto.PageDto;
-import com.eventreliability.control.ControlCommandService;
+import com.eventreliability.api.dto.ReplayRequest;
+import com.eventreliability.control.ApprovalService;
 import com.eventreliability.domain.FailureClassification;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.query.FailureQueryService;
@@ -22,21 +23,21 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Failure endpoints (§15). Reads are allowed for VIEWER and OPERATOR; the mutating replay/quarantine
- * actions are OPERATOR-only (enforced by the {@code secure} security chain) and each writes an audit
- * event attributing the acting user (§17). Mutations are executed asynchronously via the control
- * topic, so they return 202 Accepted.
+ * Failure endpoints (§15). Reads are allowed for VIEWER and OPERATOR. The mutating replay/quarantine
+ * actions are <em>maker</em> requests (OPERATOR-only via the {@code secure} chain): in maker-checker
+ * mode they raise an approval request that a different checker must approve (§13, §17); each step is
+ * audited with the acting user. They return 202 Accepted with the pending {@code requestId}.
  */
 @RestController
 @RequestMapping("/api/failures")
 public class FailureController {
 
     private final FailureQueryService queryService;
-    private final ControlCommandService controlCommandService;
+    private final ApprovalService approvalService;
 
-    public FailureController(FailureQueryService queryService, ControlCommandService controlCommandService) {
+    public FailureController(FailureQueryService queryService, ApprovalService approvalService) {
         this.queryService = queryService;
-        this.controlCommandService = controlCommandService;
+        this.approvalService = approvalService;
     }
 
     /** {@code GET /api/failures?status=&topic=&classification=&page=&size=} — list/filter. */
@@ -56,27 +57,30 @@ public class FailureController {
         return queryService.detail(correlationId);
     }
 
-    /** {@code POST /api/failures/{correlationId}/replay} — single replay (operator, audited). */
+    /**
+     * {@code POST /api/failures/{correlationId}/replay} — maker raises a replay request (§13).
+     * Body may override the target topic and/or supply a corrected payload.
+     */
     @PostMapping("/{correlationId}/replay")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ActionAccepted replay(@PathVariable String correlationId,
-                                 @RequestBody(required = false) ActionRequest request) {
+                                 @RequestBody(required = false) ReplayRequest request) {
         String actor = CurrentUser.name();
-        controlCommandService.requestReplay(correlationId, actor, reasonOf(request));
-        return ActionAccepted.of("replay", correlationId, actor);
+        String requestId = approvalService.requestReplay(correlationId, actor,
+                request == null ? null : request.reason(),
+                request == null ? null : request.targetTopic(),
+                request == null ? null : request.payloadBase64());
+        return ActionAccepted.of("replay", correlationId, actor, requestId);
     }
 
-    /** {@code POST /api/failures/{correlationId}/quarantine} — manual quarantine (operator, audited). */
+    /** {@code POST /api/failures/{correlationId}/quarantine} — maker raises a quarantine request (§13). */
     @PostMapping("/{correlationId}/quarantine")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ActionAccepted quarantine(@PathVariable String correlationId,
                                      @RequestBody(required = false) ActionRequest request) {
         String actor = CurrentUser.name();
-        controlCommandService.requestQuarantine(correlationId, actor, reasonOf(request));
-        return ActionAccepted.of("quarantine", correlationId, actor);
-    }
-
-    private static String reasonOf(ActionRequest request) {
-        return request == null ? null : request.reason();
+        String requestId = approvalService.requestQuarantine(correlationId, actor,
+                request == null ? null : request.reason());
+        return ActionAccepted.of("quarantine", correlationId, actor, requestId);
     }
 }

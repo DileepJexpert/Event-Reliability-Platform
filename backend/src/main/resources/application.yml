@@ -89,6 +89,12 @@ reliability:
   replay:
     destination: ${RELIABILITY_REPLAY_DESTINATION:original}   # original | <fixed-topic>
     bulk-batch-size: 1000
+    # Maker-checker (4-eyes) for replay/bulk-replay/quarantine (§13/§17): a maker raises a request a
+    # different checker must approve before it executes. Set false for a non-regulated/dev deployment.
+    approval-required: ${RELIABILITY_APPROVAL_REQUIRED:true}
+    require-distinct-checker: ${RELIABILITY_REQUIRE_DISTINCT_CHECKER:true}
+    # Topics a replay may be redirected to besides the original (e.g. a fix/replay topic). Comma list.
+    # allowed-topics: payments.retry,orders.retry
 
 logging:
   level:

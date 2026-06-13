@@ -113,6 +113,32 @@ public record ReliabilityProperties(
              */
             @DefaultValue("original") String destination,
             /** Max records replayed per bulk-replay command batch (back-pressure guard). */
-            @DefaultValue("1000") int bulkBatchSize
-    ) {}
+            @DefaultValue("1000") int bulkBatchSize,
+            /**
+             * Require maker-checker (4-eyes) approval before a replay/bulk-replay/quarantine executes
+             * (§13/§17). When true a maker raises a request that a different checker must approve;
+             * when false the maker's action executes directly (legacy/dev behaviour).
+             */
+            @DefaultValue("true") boolean approvalRequired,
+            /** The checker must be a different user than the maker (segregation of duties). */
+            @DefaultValue("true") boolean requireDistinctChecker,
+            /**
+             * Topics an operator may target on replay, in addition to the message's original topic.
+             * Empty means only the original topic is permitted — so corrected messages can only be
+             * sent to sanctioned destinations.
+             */
+            @DefaultValue List<String> allowedTopics
+    ) {
+        public Replay {
+            allowedTopics = allowedTopics == null ? List.of() : List.copyOf(allowedTopics);
+        }
+
+        /** Whether {@code topic} is a permitted replay destination (original topic is always allowed). */
+        public boolean isTargetAllowed(String topic, String originalTopic) {
+            if (topic == null || topic.isBlank() || topic.equals(originalTopic)) {
+                return true;
+            }
+            return allowedTopics.contains(topic);
+        }
+    }
 }

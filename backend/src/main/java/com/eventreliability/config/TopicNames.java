@@ -87,6 +87,11 @@ public class TopicNames {
         return n("control.commands");
     }
 
+    /** Maker-checker control requests awaiting/after approval (§13), compacted by request id. */
+    public String controlRequests() {
+        return n("control.requests");
+    }
+
     /** Incident feed for the notifier and the live console stream (§8). */
     public String incidents() {
         return n("incidents");
@@ -111,6 +116,7 @@ public class TopicNames {
         m.put("viewsIncidents", viewsIncidents());
         m.put("viewsAudit", viewsAudit());
         m.put("controlCommands", controlCommands());
+        m.put("controlRequests", controlRequests());
         m.put("incidents", incidents());
         return m;
     }

@@ -39,9 +39,12 @@ public class ControlCommandListener {
         log.info("Control command {} corr={} incident={} actor={}",
                 command.type(), command.correlationId(), command.incidentId(), command.actor());
         switch (command.type()) {
-            case REPLAY -> replayService.replaySingle(command.correlationId(), command.actor(), command.reason());
-            case BULK_REPLAY -> replayService.bulkReplay(command.incidentId(), command.actor(), command.reason());
-            case QUARANTINE -> replayService.quarantine(command.correlationId(), command.actor(), command.reason());
+            case REPLAY -> replayService.replaySingle(command.correlationId(), command.actor(),
+                    command.reason(), command.targetTopic(), command.payloadOverrideBase64());
+            case BULK_REPLAY -> replayService.bulkReplay(command.incidentId(), command.actor(),
+                    command.reason(), command.targetTopic());
+            case QUARANTINE -> replayService.quarantine(command.correlationId(), command.actor(),
+                    command.reason());
         }
     }
 }

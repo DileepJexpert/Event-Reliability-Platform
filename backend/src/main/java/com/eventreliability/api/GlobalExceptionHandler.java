@@ -1,5 +1,6 @@
 package com.eventreliability.api;
 
+import com.eventreliability.control.SelfApprovalException;
 import com.eventreliability.query.NotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,6 +27,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MethodArgumentTypeMismatchException.class, IllegalArgumentException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+    }
+
+    /** Maker-checker 4-eyes violation (approving your own request) → 403. */
+    @ExceptionHandler(SelfApprovalException.class)
+    public ResponseEntity<ApiError> handleForbidden(Exception ex, HttpServletRequest req) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), req);
+    }
+
+    /** Acting on a request that is no longer pending (already approved/rejected) → 409. */
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiError> handleConflict(Exception ex, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, ex.getMessage(), req);
     }
 
     @ExceptionHandler(Exception.class)

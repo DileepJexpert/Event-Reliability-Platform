@@ -191,6 +191,41 @@ Turn the volume down when you don't need it:
 
 ---
 
+## Maker-checker replay (4-eyes)
+
+Replays are bank-grade by default: a **maker** raises a request, a **different checker** approves it,
+and only then does it execute — both steps audited. You can also correct the payload and redirect to
+an allow-listed topic. Locally there's no IdP, so pass an `X-Actor` header to act as different people:
+
+```powershell
+# 1) Maker (alice) requests a replay (optionally correcting payload / redirecting topic)
+$req = Invoke-RestMethod -Method Post "http://localhost:8080/api/failures/<id>/replay" `
+         -Headers @{ "X-Actor" = "alice" } -ContentType "application/json" `
+         -Body (@{ reason = "upstream fixed" } | ConvertTo-Json)
+$req.requestId
+
+# 2) See the pending queue, then a DIFFERENT checker (bob) approves → it executes
+Invoke-RestMethod "http://localhost:8080/api/approvals"
+Invoke-RestMethod -Method Post "http://localhost:8080/api/approvals/$($req.requestId)/approve" `
+  -Headers @{ "X-Actor" = "bob" } -ContentType "application/json" -Body (@{ reason = "verified" } | ConvertTo-Json)
+```
+
+- alice approving her own request → **403** (4-eyes).
+- **Correct payload / redirect:** add `targetTopic` and/or `payloadBase64` (base64 of the corrected
+  message) to the maker body. The target must be the original topic or in `reliability.replay.allowed-topics`.
+- **Reject** instead: `POST /api/approvals/{requestId}/reject`.
+- **Turn it off** (non-bank/dev): `RELIABILITY_APPROVAL_REQUIRED=false` → replays execute directly.
+
+| Config | Default | Meaning |
+| --- | --- | --- |
+| `reliability.replay.approval-required` | `true` | require maker-checker approval |
+| `reliability.replay.require-distinct-checker` | `true` | checker must differ from maker |
+| `reliability.replay.allowed-topics` | (empty) | extra topics a replay may target |
+
+Roles (under the `secure` profile): `OPERATOR` raises requests; `APPROVER` approves/rejects.
+
+---
+
 ## Profiles
 
 | Profile | Auth | When to use |

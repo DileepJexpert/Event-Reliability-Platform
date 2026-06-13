@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.eventreliability.domain.AuditTimeline;
+import com.eventreliability.domain.ControlRequest;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.domain.MessageState;
@@ -61,6 +62,21 @@ public class ReadModels {
         return incidentsStore().map(this::drain).orElseGet(List::of);
     }
 
+    public Optional<ControlRequest> controlRequest(String requestId) {
+        return controlRequestsStore().map(s -> s.get(requestId));
+    }
+
+    public List<ControlRequest> allControlRequests() {
+        return controlRequestsStore().map(this::drain).orElseGet(List::of);
+    }
+
+    /** Maker-checker requests still awaiting a checker (§13). */
+    public List<ControlRequest> pendingApprovals() {
+        return allControlRequests().stream()
+                .filter(r -> r.status() == ControlRequest.Status.PENDING)
+                .toList();
+    }
+
     /**
      * Messages awaiting human review. Served by filtering the failures GlobalKTable on the parked
      * lifecycle states — the compacted state GlobalKTable already provides full-local reads (§9), so
@@ -85,6 +101,10 @@ public class ReadModels {
 
     private Optional<ReadOnlyKeyValueStore<String, Incident>> incidentsStore() {
         return store(StoreNames.INCIDENTS);
+    }
+
+    private Optional<ReadOnlyKeyValueStore<String, ControlRequest>> controlRequestsStore() {
+        return store(StoreNames.CONTROL_REQUESTS);
     }
 
     private <V> Optional<ReadOnlyKeyValueStore<String, V>> store(String name) {

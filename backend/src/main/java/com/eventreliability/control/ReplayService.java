@@ -56,18 +56,19 @@ public class ReplayService {
         this.metrics = metrics;
     }
 
-    public void replaySingle(String correlationId, String actor, String reason) {
+    public void replaySingle(String correlationId, String actor, String reason,
+                             String targetTopic, String payloadOverrideBase64) {
         FailureRecord record = stateService.find(correlationId).orElse(null);
         if (record == null) {
             log.warn("Replay command for unknown correlation id {}", correlationId);
             return;
         }
-        if (doReplay(record, actor, reason != null ? reason : "single replay")) {
+        if (doReplay(record, actor, reason != null ? reason : "single replay", targetTopic, payloadOverrideBase64)) {
             metrics.replay("single");
         }
     }
 
-    public void bulkReplay(String incidentId, String actor, String reason) {
+    public void bulkReplay(String incidentId, String actor, String reason, String targetTopic) {
         Incident incident = readModels.incident(incidentId).orElse(null);
         if (incident == null) {
             log.warn("Bulk-replay command for unknown incident {}", incidentId);
@@ -82,7 +83,7 @@ public class ReplayService {
 
         int replayed = 0;
         for (FailureRecord record : cohort) {
-            if (doReplay(record, actor, "bulk-replay of incident " + incidentId)) {
+            if (doReplay(record, actor, "bulk-replay of incident " + incidentId, targetTopic, null)) {
                 replayed++;
             }
         }
@@ -110,11 +111,13 @@ public class ReplayService {
                 reason != null ? reason : "manually quarantined");
     }
 
-    private boolean doReplay(FailureRecord record, String actor, String detail) {
-        String destination = record.originalTopic();
+    private boolean doReplay(FailureRecord record, String actor, String detail,
+                             String targetTopic, String payloadOverrideBase64) {
+        String destination = (targetTopic != null && !targetTopic.isBlank())
+                ? targetTopic : record.originalTopic();
         if (destination == null || destination.isBlank()) {
             auditService.userAction(record.correlationId(), record.state(), record.state(),
-                    "REPLAY_FAILED", actor, "cannot replay — no original topic known");
+                    "REPLAY_FAILED", actor, "cannot replay — no original/target topic known");
             return false;
         }
         Headers out = FailureHeaders.fromMap(record.headers());
@@ -122,10 +125,12 @@ public class ReplayService {
         out.remove(FailureHeaders.RETRY_TIER);
         String key = FailureHeaders.getString(out, FailureHeaders.ORIGINAL_KEY);
 
-        publisher.send(new ProducerRecord<>(destination, null, key, decode(record.payloadBase64()), out));
+        boolean edited = payloadOverrideBase64 != null && !payloadOverrideBase64.isBlank();
+        byte[] payload = edited ? decode(payloadOverrideBase64) : decode(record.payloadBase64());
+        publisher.send(new ProducerRecord<>(destination, null, key, payload, out));
         stateService.put(record.toBuilder().state(MessageState.REPLAYED).lastActor(actor).build());
         auditService.userAction(record.correlationId(), record.state(), MessageState.REPLAYED,
-                "REPLAYED", actor, detail + " → " + destination);
+                "REPLAYED", actor, detail + " → " + destination + (edited ? " (payload corrected)" : ""));
         return true;
     }
 
