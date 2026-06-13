@@ -38,22 +38,32 @@ By default it also auto-sends one of each on startup (`DLQ_AUTOSEND=false` to di
 
 ## Run it (end to end)
 
-From the **platform repo** root:
+You need three things up, in this order: **Kafka → platform backend → this sample.**
+
+**1) Start Kafka.** This folder bundles its own copy of the broker compose, so you can start it right
+here (it's the same single-node `erp-kafka` broker on `localhost:9092`):
 
 ```bash
-# 1) Start the local Kafka broker (KRaft, no ZooKeeper)
+cd dlq-sample-producer
 docker compose up -d
+```
 
-# 2) Start the platform backend — this provisions reliability.* topics and begins consuming
+**2) Start the platform backend** (from the platform repo — it provisions the `reliability.*` topics
+and begins consuming; the broker has auto-create disabled, so this step is what creates the DLQ topic):
+
+```bash
 cd backend && mvn spring-boot:run
 ```
 
-Then, from **this sample's** folder (in a second terminal):
+**3) Start this sample** (second terminal, from this folder):
 
 ```bash
 cd dlq-sample-producer
 mvn spring-boot:run
 ```
+
+> Already running Kafka from the platform repo's own `docker compose up -d`? Then skip step 1 — it's
+> the identical broker, and running both would clash on port 9092.
 
 On startup it publishes one of each failure. Send more on demand:
 
