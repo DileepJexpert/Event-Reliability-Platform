@@ -206,6 +206,19 @@ Invoke-RestMethod "http://localhost:8080/api/failures"            # PowerShell-n
 The backend hasn't provisioned the topics yet (auto-create is off). Start Kafka **and** the backend
 first, then retry `curl -X POST http://localhost:8081/send/all`.
 
+**Backend floods with `UNKNOWN_TOPIC_OR_PARTITION` / `Re-drive failed … Topic X not present`.**
+A retried failure (or a manual replay) is being re-driven to its **original** business topic (e.g.
+`payments.transactions`), which doesn't exist on the broker (auto-create is off). The sample now
+creates its business topics on startup; or create them manually once:
+```bash
+docker exec erp-kafka bash -c 'for t in payments.transactions orders.events inventory.updates billing.debits sagas.events; do /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --if-not-exists --topic $t --partitions 3 --replication-factor 1; done'
+```
+
+**Backend logs a burst of `dispatcherServlet … connection aborted` (broken pipe).**
+Harmless: an SSE live-feed client (a browser tab, or `curl -N /api/stream`) disconnected while the
+platform was pushing updates — common during a storm. Data is unaffected (the feed is best-effort).
+The backend now silences this; pull + restart to pick up the change.
+
 **Frontend (Chrome) shows network/CORS errors.**
 Make sure the backend is running in the default/`local` profile (not `secure`) — dev CORS is only
 enabled there. Alternatively run the desktop target (`-d windows`), which isn't subject to browser CORS.
