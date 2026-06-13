@@ -40,7 +40,7 @@ public class Classifier {
                     compile(r.exceptionPattern()),
                     compile(r.messagePattern()),
                     r.classification(),
-                    r.action() != null ? r.action() : defaultAction(r.classification()),
+                    r.action() != null ? r.action() : RecommendedAction.defaultFor(r.classification()),
                     r.reason()));
         }
         log.info("Loaded {} classification rule(s)", rules.size());
@@ -66,18 +66,6 @@ public class Classifier {
             return null;
         }
         return Pattern.compile(regex, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-    }
-
-    private static RecommendedAction defaultAction(FailureClassification classification) {
-        if (classification == null) {
-            return RecommendedAction.PARK_FOR_REVIEW;
-        }
-        return switch (classification) {
-            case TRANSIENT, INFRASTRUCTURE -> RecommendedAction.AUTO_RETRY;
-            case BUSINESS -> RecommendedAction.ROUTE_TO_OWNER;
-            case POISON -> RecommendedAction.QUARANTINE;
-            case UNKNOWN -> RecommendedAction.PARK_FOR_REVIEW;
-        };
     }
 
     private record CompiledRule(

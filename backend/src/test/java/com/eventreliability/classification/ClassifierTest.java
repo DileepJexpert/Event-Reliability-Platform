@@ -20,7 +20,7 @@ class ClassifierTest {
             new ClassificationProperties.Rule("poison", ".*SerializationException.*", null,
                     FailureClassification.POISON, RecommendedAction.QUARANTINE, "poison"),
             new ClassificationProperties.Rule("business", null, ".*account frozen.*",
-                    FailureClassification.BUSINESS, RecommendedAction.ROUTE_TO_OWNER, "business"))));
+                    FailureClassification.BUSINESS, RecommendedAction.ROUTE_TO_OWNER, "business")), null));
 
     @Test
     void firstMatchingRuleWins() {

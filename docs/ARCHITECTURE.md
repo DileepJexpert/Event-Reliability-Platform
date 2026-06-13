@@ -114,4 +114,9 @@ root-cause signature folds in the optional `x-schema-version` header, so a burst
 * **Presumed-resolved** — without a success callback, RESOLVED is inferred after a grace period.
 * **Re-drive key** — the base header contract carries no original key; an optional `x-original-key`
   header preserves source-topic partitioning when ordering matters.
-* **LLM classification** is a future hook behind the same async topic, not part of this build (§11).
+* **LLM classification** is implemented as an *optional* fallback (§11): `ClassificationService` runs
+  the rule table first and consults a self-hosted Ollama model (`OllamaClassifier`) only for ambiguous
+  `UNKNOWN` results (or every message in `always` mode). Disabled by default; any LLM error falls back
+  to the rule result, so it can only improve a classification, never break the pipeline. It sits on the
+  async classification path, so even a slow model never throttles ingestion (§11) — raise the
+  classification listener concurrency if LLM latency builds a backlog.

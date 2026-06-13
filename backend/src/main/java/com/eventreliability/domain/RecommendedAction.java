@@ -12,5 +12,18 @@ public enum RecommendedAction {
     /** Quarantine to the park topic immediately. */
     QUARANTINE,
     /** Park for human review (UNKNOWN). */
-    PARK_FOR_REVIEW
+    PARK_FOR_REVIEW;
+
+    /** The conventional action for a taxonomy class, used when a rule/LLM omits an explicit action. */
+    public static RecommendedAction defaultFor(FailureClassification classification) {
+        if (classification == null) {
+            return PARK_FOR_REVIEW;
+        }
+        return switch (classification) {
+            case TRANSIENT, INFRASTRUCTURE -> AUTO_RETRY;
+            case BUSINESS -> ROUTE_TO_OWNER;
+            case POISON -> QUARANTINE;
+            case UNKNOWN -> PARK_FOR_REVIEW;
+        };
+    }
 }
