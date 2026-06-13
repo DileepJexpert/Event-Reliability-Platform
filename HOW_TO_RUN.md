@@ -146,6 +146,32 @@ curl -X POST "http://localhost:8081/send/storm?count=30"
 
 ---
 
+## What you should see (per failure type)
+
+Each sample lands in a different lane. After sending, check `GET /api/failures` (open it in a browser,
+or curl it) and the matching output topic:
+
+| You send | classification | ends in state | lands on topic | how it gets there |
+| --- | --- | --- | --- | --- |
+| `/send/transient` | TRANSIENT | `RETRY_SCHEDULED` → `RESOLVED` | `retry.5s` → … | auto-retried; presumed resolved after the resolve grace (~2 min) since nothing re-fails it |
+| `/send/infrastructure` | INFRASTRUCTURE | `RETRY_SCHEDULED` → `RESOLVED` | `retry.5s` → … | same retry path |
+| `/send/poison` | POISON | `QUARANTINED_POISON` | `parked` | quarantined immediately, never retried |
+| `/send/business` | BUSINESS | `ROUTED_BUSINESS` | `business.routed` | handed to the owner; retry wouldn't help |
+| `/send/unknown` | UNKNOWN | `PARKED_UNKNOWN` | `parked` | parked for a human (no rule matched) |
+| `/send/storm?count=600` | TRANSIENT (×N) | — | `incidents` | identical root cause trips pattern detection → an incident |
+
+Operator actions (each also appended to the audit timeline):
+
+| Action | Result |
+| --- | --- |
+| `POST /api/failures/{id}/replay` | state → `REPLAY_REQUESTED` → `REPLAYED`; message re-sent to its original topic |
+| `POST /api/failures/{id}/quarantine` | manually parked; audit entry attributes you |
+| `POST /api/incidents/{id}/bulk-replay` | every example in the incident re-driven in one click |
+
+Every transition is recorded in the immutable audit log — see it at `GET /api/failures/{correlationId}`.
+
+---
+
 ## Profiles
 
 | Profile | Auth | When to use |
@@ -164,6 +190,16 @@ or use a backtick `` ` `` at the end of each line:
 flutter run -d chrome `
   --dart-define=API_BASE_URL=http://localhost:8080 `
   --dart-define=AUTH_MODE=dev
+```
+
+**`curl` fails in PowerShell — `A parameter cannot be found that matches parameter name 'X'`.**
+In PowerShell `curl` is an alias for `Invoke-WebRequest`, which doesn't understand `-X`. Use real curl
+as **`curl.exe`**, or PowerShell-native cmdlets. Also: send each command on its own line (don't paste
+several `curl` lines at once).
+```powershell
+curl.exe -X POST "http://localhost:8081/send/storm?count=600"     # real curl (bundled with Win 10+)
+Invoke-RestMethod -Method Post "http://localhost:8081/send/all"   # PowerShell-native POST
+Invoke-RestMethod "http://localhost:8080/api/failures"            # PowerShell-native GET
 ```
 
 **Sample producer fails with "topic ... does not exist" / `UnknownTopicOrPartition`.**
