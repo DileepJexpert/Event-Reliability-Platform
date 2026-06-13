@@ -8,12 +8,12 @@ import '../services/event_stream.dart';
 
 /// Live view state for the dashboard (§16).
 ///
-/// The dashboard's source of truth is the REST API: on open (and on a short poll interval) it loads
-/// the current per-classification totals, the recent failures and the active incidents. This works on
-/// every platform — crucially including Flutter **web**, where the browser http client can't consume
-/// the SSE stream. On top of that it *also* subscribes to the SSE live feed for instant updates where
-/// streaming is supported (desktop/mobile); a dropped feed never blanks the dashboard because the poll
-/// keeps it current. Holds no business logic — it just projects the backend's data for display.
+/// Reactive, push-driven: it subscribes to the SSE live feed and, on every push, reconciles the
+/// dashboard from the REST API (debounced, so the burst of state-change events one failure produces
+/// collapses into a single update). REST is the source of truth for the *numbers* (so the cards are
+/// always exact, never double-counted), and SSE makes them update in real time — on web via the
+/// browser EventSource, on desktop via http streaming. A short backstop poll covers any missed push
+/// or a dropped stream. Holds no business logic — it just projects the backend's data for display.
 class DashboardState extends ChangeNotifier {
   final ApiClient api;
   final EventStream stream;
@@ -27,7 +27,11 @@ class DashboardState extends ChangeNotifier {
     'UNKNOWN',
   ];
 
-  static const Duration _pollInterval = Duration(seconds: 5);
+  /// Backstop reconcile in case an SSE push is missed or the stream is down.
+  static const Duration _pollInterval = Duration(seconds: 15);
+
+  /// Collapse a burst of pushes (one failure emits several state-change events) into one refresh.
+  static const Duration _debounce = Duration(milliseconds: 400);
 
   final Map<String, int> classificationCounts = {};
   final List<FailureSummary> recentFailures = [];
@@ -37,7 +41,9 @@ class DashboardState extends ChangeNotifier {
 
   StreamSubscription<LiveEvent>? _sub;
   Timer? _pollTimer;
+  Timer? _debounceTimer;
   bool _disposed = false;
+  bool _refreshing = false;
 
   DashboardState(this.api, this.stream);
 
@@ -47,11 +53,37 @@ class DashboardState extends ChangeNotifier {
     _listen();
   }
 
-  /// Pull the current state over REST. Source of truth for the dashboard; works on every platform.
+  void _listen() {
+    _sub = stream.connect().listen(
+      (_) => _scheduleRefresh(), // a live push arrived → reconcile right away (debounced)
+      onError: (_) => _scheduleReconnect(),
+      onDone: _scheduleReconnect,
+      cancelOnError: true,
+    );
+  }
+
+  void _scheduleRefresh() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_debounce, () {
+      if (!_disposed) refresh();
+    });
+  }
+
+  void _scheduleReconnect() {
+    // The REST poll keeps the dashboard correct regardless, so a dropped SSE stream doesn't blank it.
+    if (!_disposed) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (!_disposed) _listen();
+      });
+    }
+  }
+
+  /// Load current totals + recent failures + incidents over REST (source of truth, every platform).
   Future<void> refresh() async {
-    if (_disposed) {
+    if (_disposed || _refreshing) {
       return;
     }
+    _refreshing = true;
     try {
       final recent = await api.listFailures(size: 50);
       final counts = <String, int>{};
@@ -73,50 +105,12 @@ class DashboardState extends ChangeNotifier {
       connected = true;
       _notify();
     } catch (_) {
-      // Backend unreachable — surface "reconnecting"; the next poll tick retries.
+      // Backend unreachable — surface "reconnecting"; the next push or poll retries.
       connected = false;
       _notify();
+    } finally {
+      _refreshing = false;
     }
-  }
-
-  void _listen() {
-    _sub = stream.connect().listen(
-      (event) {
-        if (event.event == 'failure') {
-          _onFailure(FailureSummary.fromJson(event.data));
-        } else if (event.event == 'incident') {
-          _onIncident(Incident.fromJson(event.data));
-        }
-        _notify();
-      },
-      onError: (_) => _scheduleReconnect(),
-      onDone: _scheduleReconnect,
-      cancelOnError: true,
-    );
-  }
-
-  void _scheduleReconnect() {
-    // SSE is best-effort; the REST poll keeps the dashboard correct regardless, so a dropped stream
-    // does not flip the status to "reconnecting" (that now means the REST API itself is unreachable).
-    if (!_disposed) {
-      Future.delayed(const Duration(seconds: 3), () {
-        if (!_disposed) _listen();
-      });
-    }
-  }
-
-  void _onFailure(FailureSummary failure) {
-    final c = failure.classification ?? 'UNKNOWN';
-    classificationCounts[c] = (classificationCounts[c] ?? 0) + 1;
-    recentFailures.insert(0, failure);
-    if (recentFailures.length > 100) {
-      recentFailures.removeRange(100, recentFailures.length);
-    }
-  }
-
-  void _onIncident(Incident incident) {
-    incidents.removeWhere((i) => i.id == incident.id);
-    incidents.insert(0, incident);
   }
 
   List<Incident> get activeIncidents => incidents.where((i) => i.isActive).toList();
@@ -131,6 +125,7 @@ class DashboardState extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _pollTimer?.cancel();
+    _debounceTimer?.cancel();
     _sub?.cancel();
     stream.close();
     super.dispose();
