@@ -28,7 +28,7 @@ class DashboardScreen extends StatelessWidget {
                   Text(state.connected ? 'live' : 'reconnecting…',
                       style: Theme.of(context).textTheme.bodySmall),
                   const Spacer(),
-                  Text('${state.totalFailureEvents} failure events this session',
+                  Text('${state.totalFailureEvents} failures total',
                       style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
