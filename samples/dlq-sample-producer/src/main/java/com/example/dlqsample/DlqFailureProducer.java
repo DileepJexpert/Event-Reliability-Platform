@@ -87,7 +87,8 @@ public class DlqFailureProducer {
         put(h, FailureHeaders.ATTEMPT_COUNT, "1");
         put(h, FailureHeaders.FIRST_FAILED_AT, Long.toString(System.currentTimeMillis()));
         put(h, FailureHeaders.SOURCE_APP, sourceApp);
-        put(h, FailureHeaders.SCHEMA_VERSION, "v1");
+        // Bare version number — the platform prepends "v" itself in the root-cause signature (#v1).
+        put(h, FailureHeaders.SCHEMA_VERSION, "1");
     }
 
     private static String syntheticStacktrace(SampleFailure f) {

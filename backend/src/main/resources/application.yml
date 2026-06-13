@@ -93,3 +93,8 @@ reliability:
 logging:
   level:
     com.eventreliability: INFO
+    # SSE clients (browser console / a curl on /api/stream) dropping mid-stream surface as broken-pipe
+    # IOExceptions that embedded Tomcat logs at ERROR for every failed write. They're harmless — the
+    # live feed is best-effort and all state lives in Kafka — but a burst (e.g. during a storm) floods
+    # the console. Silence just that servlet's error log; real API errors still surface via responses.
+    "[org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/].[dispatcherServlet]]": "off"
