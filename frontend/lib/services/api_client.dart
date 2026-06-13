@@ -81,8 +81,9 @@ class ApiClient {
 
   // ----- checker actions (maker-checker approvals) -----
 
-  Future<List<Approval>> listApprovals() async {
-    final res = await _http.get(Uri.parse('$_base/api/approvals'), headers: _headers);
+  Future<List<Approval>> listApprovals({String status = 'PENDING'}) async {
+    final uri = Uri.parse('$_base/api/approvals').replace(queryParameters: {'status': status});
+    final res = await _http.get(uri, headers: _headers);
     _check(res);
     return (jsonDecode(res.body) as List<dynamic>)
         .map((e) => Approval.fromJson(e as Map<String, dynamic>))
@@ -100,6 +101,18 @@ class ApiClient {
 
   Future<void> rejectRequest(String requestId, {String? reason}) =>
       _postJson('/api/approvals/$requestId/reject', {'reason': reason});
+
+  /// Checker sends a request back to the maker for correction (optionally suggesting a fix).
+  Future<void> returnToMaker(String requestId,
+          {String? reason, String? targetTopic, String? payloadBase64}) =>
+      _postJson('/api/approvals/$requestId/return',
+          {'reason': reason, 'targetTopic': targetTopic, 'payloadBase64': payloadBase64});
+
+  /// Maker corrects a returned request and resubmits it for approval.
+  Future<void> resubmit(String requestId,
+          {String? reason, String? targetTopic, String? payloadBase64}) =>
+      _postJson('/api/approvals/$requestId/resubmit',
+          {'reason': reason, 'targetTopic': targetTopic, 'payloadBase64': payloadBase64});
 
   Future<void> _postJson(String path, Map<String, dynamic> body) async {
     final res = await _http.post(

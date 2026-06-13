@@ -233,6 +233,7 @@ class Approval {
   final String? checker;
   final String? checkerReason;
   final int? decidedAt;
+  final int revision;
 
   Approval({
     required this.requestId,
@@ -252,6 +253,7 @@ class Approval {
     this.checker,
     this.checkerReason,
     this.decidedAt,
+    this.revision = 0,
   });
 
   String get target => correlationId ?? incidentId ?? requestId;
@@ -274,6 +276,7 @@ class Approval {
         checker: j['checker'] as String?,
         checkerReason: j['checkerReason'] as String?,
         decidedAt: j['decidedAt'] as int?,
+        revision: (j['revision'] ?? 0) as int,
       );
 }
 

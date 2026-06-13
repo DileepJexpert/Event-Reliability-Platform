@@ -21,5 +21,6 @@ public record ApprovalDto(
         long createdAt,
         String checker,
         String checkerReason,
-        Long decidedAt) {
+        Long decidedAt,
+        int revision) {
 }

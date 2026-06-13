@@ -70,11 +70,16 @@ public class ReadModels {
         return controlRequestsStore().map(this::drain).orElseGet(List::of);
     }
 
+    /** Maker-checker requests in a given lifecycle state (§13). */
+    public List<ControlRequest> requestsByStatus(ControlRequest.Status status) {
+        return allControlRequests().stream()
+                .filter(r -> r.status() == status)
+                .toList();
+    }
+
     /** Maker-checker requests still awaiting a checker (§13). */
     public List<ControlRequest> pendingApprovals() {
-        return allControlRequests().stream()
-                .filter(r -> r.status() == ControlRequest.Status.PENDING)
-                .toList();
+        return requestsByStatus(ControlRequest.Status.PENDING);
     }
 
     /**

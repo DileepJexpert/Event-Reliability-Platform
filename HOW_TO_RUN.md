@@ -214,6 +214,10 @@ Invoke-RestMethod -Method Post "http://localhost:8080/api/approvals/$($req.reque
 - **Correct payload / redirect:** add `targetTopic` and/or `payloadBase64` (base64 of the corrected
   message) to the maker body. The target must be the original topic or in `reliability.replay.allowed-topics`.
 - **Reject** instead: `POST /api/approvals/{requestId}/reject`.
+- **Return to maker** (rework): `POST /api/approvals/{requestId}/return` (checker — may attach a
+  suggested `targetTopic`/`payloadBase64` + note). The maker then corrects via
+  `POST /api/approvals/{requestId}/resubmit` (any operator → becomes the maker, request goes back to
+  PENDING, revision bumped). List the maker's correction queue with `GET /api/approvals?status=RETURNED`.
 - **Turn it off** (non-bank/dev): `RELIABILITY_APPROVAL_REQUIRED=false` → replays execute directly.
 
 | Config | Default | Meaning |
@@ -222,7 +226,8 @@ Invoke-RestMethod -Method Post "http://localhost:8080/api/approvals/$($req.reque
 | `reliability.replay.require-distinct-checker` | `true` | checker must differ from maker |
 | `reliability.replay.allowed-topics` | (empty) | extra topics a replay may target |
 
-Roles (under the `secure` profile): `OPERATOR` raises requests; `APPROVER` approves/rejects.
+Roles (under the `secure` profile): `OPERATOR` raises and resubmits requests; `APPROVER`
+approves / rejects / returns them. The checker must differ from the (re)submitting maker.
 
 ---
 

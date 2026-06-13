@@ -162,6 +162,42 @@ public class ApprovalService {
         return rejected;
     }
 
+    /** Checker sends the request back to the maker for correction, optionally suggesting a fix (§13). */
+    public ControlRequest returnToMaker(String requestId, String checker, String reason,
+                                        String suggestedTopic, String suggestedPayloadBase64) {
+        ControlRequest req = requirePending(requestId);
+        requireDistinctChecker(req, checker);
+        requireAllowedTarget(suggestedTopic, originalTopicOf(req));
+
+        ControlRequest returned = req.returnedToMaker(checker, reason, suggestedTopic, suggestedPayloadBase64);
+        publisher.sendJson(topics.controlRequests(), requestId, returned);
+        auditService.record(keyOf(returned), null, null, returnedAction(returned.type()), checker,
+                "returned to maker " + req.maker() + (reason != null ? ": " + reason : ""),
+                approvalAttrs(returned));
+        log.info("Checker {} RETURNED request {} to maker {}", checker, requestId, req.maker());
+        return returned;
+    }
+
+    /** A maker corrects a returned request and resubmits it for approval — a fresh revision (§13). */
+    public ControlRequest resubmit(String requestId, String maker, String reason,
+                                   String targetTopic, String payloadBase64) {
+        ControlRequest req = requireReturned(requestId);
+        requireAllowedTarget(targetTopic, originalTopicOf(req));
+
+        ControlRequest resubmitted = req.resubmittedBy(maker, reason, targetTopic, payloadBase64);
+        publisher.sendJson(topics.controlRequests(), requestId, resubmitted);
+        if (resubmitted.correlationId() != null) {
+            stateService.find(resubmitted.correlationId()).ifPresent(r ->
+                    stateService.put(r.toBuilder().state(MessageState.REPLAY_REQUESTED).lastActor(maker).build()));
+        }
+        auditService.record(keyOf(resubmitted), null, MessageState.REPLAY_REQUESTED,
+                resubmittedAction(resubmitted.type()), maker,
+                makerNote("resubmit", resubmitted) + " (revision " + resubmitted.revision() + ")",
+                approvalAttrs(resubmitted));
+        log.info("Maker {} RESUBMITTED request {} (revision {})", maker, requestId, resubmitted.revision());
+        return resubmitted;
+    }
+
     // ---------------- helpers ----------------
 
     private ControlRequest newRequest(ControlCommand.Type type, String correlationId, String incidentId,
@@ -169,7 +205,7 @@ public class ApprovalService {
                                       MessageState priorState) {
         return new ControlRequest(UUID.randomUUID().toString(), type, correlationId, incidentId, targetTopic,
                 payloadBase64, ControlRequest.Status.PENDING, maker, reason, System.currentTimeMillis(),
-                null, null, null, priorState, null);
+                null, null, null, priorState, null, 0);
     }
 
     private void requireAllowedTarget(String targetTopic, String originalTopic) {
@@ -193,6 +229,25 @@ public class ApprovalService {
             throw new IllegalStateException("Request " + requestId + " is already " + req.status());
         }
         return req;
+    }
+
+    private ControlRequest requireReturned(String requestId) {
+        ControlRequest req = readModels.controlRequest(requestId)
+                .orElseThrow(() -> new NotFoundException("No approval request " + requestId));
+        if (req.status() != ControlRequest.Status.RETURNED) {
+            throw new IllegalStateException("Request " + requestId + " is " + req.status() + ", not RETURNED");
+        }
+        return req;
+    }
+
+    private String originalTopicOf(ControlRequest req) {
+        if (req.correlationId() != null) {
+            return stateService.find(req.correlationId()).map(FailureRecord::originalTopic).orElse(null);
+        }
+        if (req.incidentId() != null) {
+            return readModels.incident(req.incidentId()).map(Incident::sourceTopic).orElse(null);
+        }
+        return null;
     }
 
     private FailureRecord requireFailure(String correlationId) {
@@ -245,6 +300,22 @@ public class ApprovalService {
             case REPLAY -> "REPLAY_REJECTED";
             case BULK_REPLAY -> "BULK_REPLAY_REJECTED";
             case QUARANTINE -> "QUARANTINE_REJECTED";
+        };
+    }
+
+    private static String returnedAction(ControlCommand.Type t) {
+        return switch (t) {
+            case REPLAY -> "REPLAY_RETURNED";
+            case BULK_REPLAY -> "BULK_REPLAY_RETURNED";
+            case QUARANTINE -> "QUARANTINE_RETURNED";
+        };
+    }
+
+    private static String resubmittedAction(ControlCommand.Type t) {
+        return switch (t) {
+            case REPLAY -> "REPLAY_RESUBMITTED";
+            case BULK_REPLAY -> "BULK_REPLAY_RESUBMITTED";
+            case QUARANTINE -> "QUARANTINE_RESUBMITTED";
         };
     }
 
