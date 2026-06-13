@@ -54,6 +54,8 @@ public class FailureIngestionListener {
     @KafkaListener(topics = "#{@topicNames.inbound()}", id = "ingestion")
     public void onInboundFailure(ConsumerRecord<String, byte[]> record) {
         Headers h = record.headers();
+        log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
+                record.partition(), record.offset());
 
         String correlationId = FailureHeaders.getString(h, FailureHeaders.CORRELATION_ID);
         boolean synthesized = correlationId == null || correlationId.isBlank();

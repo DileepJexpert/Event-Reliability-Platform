@@ -34,10 +34,8 @@ public class AuditService {
 
     public void record(AuditEvent event) {
         publisher.sendJson(topics.audit(), event.correlationId(), event);
-        if (log.isDebugEnabled()) {
-            log.debug("AUDIT {} {} -> {} by {} : {}", event.correlationId(), event.fromState(),
-                    event.toState(), event.actor(), event.detail());
-        }
+        log.info("AUDIT {} : {} -> {} [{}] by {} : {}", event.correlationId(), event.fromState(),
+                event.toState(), event.action(), event.actor(), event.detail());
     }
 
     /** Record an automatic, system-driven transition. */

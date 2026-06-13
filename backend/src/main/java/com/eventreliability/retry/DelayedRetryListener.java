@@ -53,11 +53,14 @@ public class DelayedRetryListener {
 
         if (now < eligibleAt) {
             long sleep = Math.min(eligibleAt - now, maxPauseMillis);
+            log.debug("RECV <- topic={} key={} not yet eligible ({} ms left); pausing {} ms",
+                    record.topic(), record.key(), eligibleAt - now, sleep);
             // Pause this partition and re-seek; the container keeps polling while paused (§18.1).
             ack.nack(Duration.ofMillis(Math.max(1, sleep)));
             return;
         }
 
+        log.info("RECV <- topic={} key={} eligible -> re-driving", record.topic(), record.key());
         try {
             redriveService.redrive(record);
             ack.acknowledge();

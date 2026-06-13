@@ -172,6 +172,25 @@ Every transition is recorded in the immutable audit log — see it at `GET /api/
 
 ---
 
+## Logs — following the flow (for debugging)
+
+The backend logs the whole message journey at INFO with grep-friendly tags:
+
+| Tag | Meaning |
+| --- | --- |
+| `RECV <- topic=… key=…` | a listener consumed a record (ingestion, classification, retry, control, incidents) |
+| `SEND -> topic=… key=…` | the platform published a record (every publish funnels through one place) |
+| `AUDIT … : FROM -> TO [ACTION] by … : …` | a lifecycle transition — the clearest single trace |
+| `Classified …` / `Scheduled retry … on tier …` / `Re-drove … -> topic …` / `Parked …` / `Routed business …` | key decisions |
+
+So one failure reads top-to-bottom as: `RECV inbound → SEND state/audit → SEND classify → RECV classify → Classified… → SEND retry.5s → … → RECV retry (eligible) → Re-drove -> payments.transactions`.
+
+Turn the volume down when you don't need it:
+- `logging.level.com.eventreliability.common.KafkaPublisher=WARN` — hide the per-publish `SEND` firehose.
+- `logging.level.com.eventreliability=WARN` — quiet the platform entirely.
+
+---
+
 ## Profiles
 
 | Profile | Auth | When to use |

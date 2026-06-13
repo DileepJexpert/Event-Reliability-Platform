@@ -103,7 +103,7 @@ public class RetryRedriveService {
                 existing != null ? existing.state() : MessageState.RETRY_SCHEDULED, MessageState.RETRYING,
                 "REDRIVEN", "re-driven to " + destination + " as attempt " + nextAttempt
                         + (tier != null ? " (tier " + tier + ")" : ""));
-        log.debug("Re-drove {} to {} as attempt {}", correlationId, destination, nextAttempt);
+        log.info("Re-drove {} -> topic {} as attempt {}", correlationId, destination, nextAttempt);
     }
 
     private String destination(Headers h) {

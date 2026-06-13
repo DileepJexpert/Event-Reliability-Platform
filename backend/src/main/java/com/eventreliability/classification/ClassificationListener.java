@@ -52,6 +52,8 @@ public class ClassificationListener {
     @KafkaListener(topics = "#{@topicNames.classify()}", id = "classification")
     public void onClassify(ConsumerRecord<String, byte[]> record) {
         Headers h = record.headers();
+        log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
+                record.partition(), record.offset());
         String correlationId = record.key() != null
                 ? record.key()
                 : FailureHeaders.getString(h, FailureHeaders.CORRELATION_ID);
@@ -85,6 +87,7 @@ public class ClassificationListener {
         metrics.classified(result.classification());
         routingService.route(classified, record.value(), h);
 
-        log.debug("Classified {} as {} ({})", correlationId, result.classification(), result.matchedRule());
+        log.info("Classified {} as {} -> action {} (rule '{}')",
+                correlationId, result.classification(), result.action(), result.matchedRule());
     }
 }

@@ -29,11 +29,15 @@ public class ControlCommandListener {
 
     @KafkaListener(topics = "#{@topicNames.controlCommands()}", id = "control")
     public void onCommand(ConsumerRecord<String, byte[]> record) {
+        log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
+                record.partition(), record.offset());
         ControlCommand command = json.fromBytes(record.value(), ControlCommand.class);
         if (command == null || command.type() == null) {
             log.warn("Ignoring malformed control command on key {}", record.key());
             return;
         }
+        log.info("Control command {} corr={} incident={} actor={}",
+                command.type(), command.correlationId(), command.incidentId(), command.actor());
         switch (command.type()) {
             case REPLAY -> replayService.replaySingle(command.correlationId(), command.actor(), command.reason());
             case BULK_REPLAY -> replayService.bulkReplay(command.incidentId(), command.actor(), command.reason());
