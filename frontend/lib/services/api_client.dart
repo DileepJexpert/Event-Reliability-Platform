@@ -114,6 +114,16 @@ class ApiClient {
       _postJson('/api/approvals/$requestId/resubmit',
           {'reason': reason, 'targetTopic': targetTopic, 'payloadBase64': payloadBase64});
 
+  /// The maker-checker round-trip for one request (request → return → resubmit → approve/reject).
+  Future<List<AuditEvent>> requestHistory(String requestId) async {
+    final res =
+        await _http.get(Uri.parse('$_base/api/approvals/$requestId/history'), headers: _headers);
+    _check(res);
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((e) => AuditEvent.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> _postJson(String path, Map<String, dynamic> body) async {
     final res = await _http.post(
       Uri.parse('$_base$path'),

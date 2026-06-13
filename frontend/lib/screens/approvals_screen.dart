@@ -9,10 +9,11 @@ import '../services/auth_service.dart';
 import '../widgets/common.dart';
 import 'failure_detail_screen.dart';
 
-/// Maker-checker approvals (§13, §17). Two queues, toggled by the filter:
-///   • PENDING  — the checker queue: approve, reject, or return-to-maker (APPROVER, ≠ maker).
-///   • RETURNED — the maker queue: correct the checker's feedback and resubmit (OPERATOR).
-/// A checker sees the original vs corrected payload and the target topic before deciding.
+/// Maker-checker approvals (§13, §17). Three views via the filter:
+///   • PENDING  — checker queue: approve, reject, or return-to-maker (APPROVER, ≠ maker).
+///   • RETURNED — maker queue: correct the checker's feedback and resubmit (OPERATOR).
+///   • ALL      — read-only history of every request and its outcome.
+/// Each card opens a timeline of the request's maker-checker round-trip.
 class ApprovalsScreen extends StatefulWidget {
   const ApprovalsScreen({super.key});
 
@@ -25,6 +26,9 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
   List<Approval>? _approvals;
   bool _loading = true;
   String? _error;
+
+  bool get _historyView => _status == 'ALL';
+  bool get _returnedView => _status == 'RETURNED';
 
   @override
   void initState() {
@@ -39,6 +43,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     });
     try {
       final list = await context.read<ApiClient>().listApprovals(status: _status);
+      if (_historyView) list.sort((x, y) => y.createdAt.compareTo(x.createdAt)); // newest first
       setState(() => _approvals = list);
     } catch (e) {
       setState(() => _error = '$e');
@@ -94,6 +99,45 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
       () => context.read<ApiClient>().resubmit(a.requestId,
           reason: r.reason.isEmpty ? null : r.reason, targetTopic: r.topic, payloadBase64: r.payloadB64),
       'Resubmitted for approval',
+    );
+  }
+
+  Future<void> _showTimeline(Approval a) async {
+    List<AuditEvent> events;
+    try {
+      events = await context.read<ApiClient>().requestHistory(a.requestId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Timeline failed: $e')));
+      return;
+    }
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Request timeline — ${a.target}'),
+        content: SizedBox(
+          width: 560,
+          child: events.isEmpty
+              ? const Text('No timeline entries yet.')
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final e in events)
+                        ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.fiber_manual_record, size: 12),
+                          title: Text(e.action),
+                          subtitle: Text('${e.detail ?? ''}\nby ${e.actor} · ${formatTimestamp(e.at)}'),
+                          isThreeLine: true,
+                        ),
+                    ],
+                  ),
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
     );
   }
 
@@ -238,10 +282,26 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
     }
   }
 
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'APPROVED':
+      case 'EXECUTED':
+        return Colors.green;
+      case 'REJECTED':
+      case 'FAILED':
+        return Colors.red;
+      case 'RETURNED':
+        return Colors.deepOrange;
+      case 'PENDING':
+        return Colors.indigo;
+      default:
+        return Colors.blueGrey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>().state;
-    final returnedView = _status == 'RETURNED';
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -251,56 +311,63 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
             Text('Approvals', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(width: 16),
             ChoiceChip(
-              label: const Text('Pending (checker)'),
-              selected: !returnedView,
-              onSelected: (_) => _setStatus('PENDING'),
-            ),
+                label: const Text('Pending (checker)'),
+                selected: _status == 'PENDING',
+                onSelected: (_) => _setStatus('PENDING')),
             const SizedBox(width: 8),
             ChoiceChip(
-              label: const Text('Returned (maker)'),
-              selected: returnedView,
-              onSelected: (_) => _setStatus('RETURNED'),
-            ),
+                label: const Text('Returned (maker)'),
+                selected: _returnedView,
+                onSelected: (_) => _setStatus('RETURNED')),
+            const SizedBox(width: 8),
+            ChoiceChip(
+                label: const Text('History (all)'),
+                selected: _historyView,
+                onSelected: (_) => _setStatus('ALL')),
             const SizedBox(width: 8),
             if (_approvals != null) TagChip(label: '${_approvals!.length}', color: Colors.indigo),
             const Spacer(),
             IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
           ]),
           const SizedBox(height: 12),
-          if (!returnedView && !auth.isApprover)
+          if (_status == 'PENDING' && !auth.isApprover)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text('You are not an approver — approve/reject/return is disabled.',
                   style: TextStyle(color: Colors.orange)),
             ),
-          if (returnedView && !auth.isOperator)
+          if (_returnedView && !auth.isOperator)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text('You are not an operator — resubmit is disabled.',
                   style: TextStyle(color: Colors.orange)),
             ),
           if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-          Expanded(child: _list(auth, returnedView)),
+          Expanded(child: _list(auth)),
         ],
       ),
     );
   }
 
-  Widget _list(AuthState auth, bool returnedView) {
+  Widget _list(AuthState auth) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     final items = _approvals ?? const <Approval>[];
     if (items.isEmpty) {
-      return Center(
-          child: Text(returnedView ? 'No requests awaiting correction.' : 'No pending approvals.'));
+      final msg = _historyView
+          ? 'No requests yet.'
+          : _returnedView
+              ? 'No requests awaiting correction.'
+              : 'No pending approvals.';
+      return Center(child: Text(msg));
     }
     return ListView.separated(
       itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => _card(items[i], auth, returnedView),
+      itemBuilder: (context, i) => _card(items[i], auth),
     );
   }
 
-  Widget _card(Approval a, AuthState auth, bool returnedView) {
+  Widget _card(Approval a, AuthState auth) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -309,6 +376,10 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
           children: [
             Row(children: [
               TagChip(label: a.type, color: Colors.indigo),
+              if (_historyView) ...[
+                const SizedBox(width: 6),
+                TagChip(label: a.status, color: _statusColor(a.status)),
+              ],
               const SizedBox(width: 8),
               Expanded(child: Text(a.target, style: const TextStyle(fontWeight: FontWeight.bold))),
               if (a.revision > 0)
@@ -332,23 +403,34 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 '${a.makerReason != null ? ' · ${a.makerReason}' : ''}'),
             if (a.exceptionClass != null)
               Text('Exception: ${a.exceptionClass}', style: const TextStyle(color: Colors.black54)),
-            if (returnedView && a.checkerReason != null)
+            if (_returnedView && a.checkerReason != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text('Returned by ${a.checker ?? '—'}: ${a.checkerReason}',
                     style: const TextStyle(color: Colors.deepOrange, fontStyle: FontStyle.italic)),
               ),
+            if (_historyView && a.decidedAt != null)
+              Text('Decided by ${a.checker ?? '—'} · ${formatTimestamp(a.decidedAt)}'
+                  '${a.checkerReason != null ? ' · ${a.checkerReason}' : ''}',
+                  style: const TextStyle(color: Colors.black54)),
             Text('Requested: ${formatTimestamp(a.createdAt)}',
                 style: const TextStyle(color: Colors.black54)),
             const SizedBox(height: 10),
             Row(children: [
-              if (a.correlationId != null)
+              OutlinedButton.icon(
+                icon: const Icon(Icons.timeline, size: 16),
+                label: const Text('Timeline'),
+                onPressed: () => _showTimeline(a),
+              ),
+              if (a.correlationId != null) ...[
+                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.open_in_new, size: 16),
                   label: const Text('View failure'),
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => FailureDetailScreen(correlationId: a.correlationId!))),
                 ),
+              ],
               if (a.payloadEdited) ...[
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -358,14 +440,14 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                 ),
               ],
               const Spacer(),
-              if (returnedView) ...[
+              if (_returnedView) ...[
                 if (auth.isOperator)
                   FilledButton.icon(
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Correct & resubmit'),
                     onPressed: () => _resubmit(a),
                   ),
-              ] else if (auth.isApprover) ...[
+              ] else if (!_historyView && auth.isApprover) ...[
                 TextButton(onPressed: () => _decide(a, false), child: const Text('Reject')),
                 const SizedBox(width: 4),
                 OutlinedButton.icon(

@@ -8,6 +8,7 @@ import com.eventreliability.api.dto.ActionRequest;
 import com.eventreliability.api.dto.ApprovalDto;
 import com.eventreliability.api.dto.ReplayRequest;
 import com.eventreliability.control.ApprovalService;
+import com.eventreliability.domain.AuditEvent;
 import com.eventreliability.domain.ControlRequest;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.query.NotFoundException;
@@ -73,6 +74,19 @@ public class ApprovalController {
     public ApprovalDto get(@PathVariable String requestId) {
         return readModels.controlRequest(requestId).map(this::toDto)
                 .orElseThrow(() -> new NotFoundException("No approval request " + requestId));
+    }
+
+    /**
+     * {@code GET /api/approvals/{requestId}/history} — the maker-checker round-trip for this request
+     * (request → return → resubmit → approve/reject), drawn from the append-only audit log (§17).
+     */
+    @GetMapping("/{requestId}/history")
+    public List<AuditEvent> history(@PathVariable String requestId) {
+        ControlRequest req = readModels.controlRequest(requestId)
+                .orElseThrow(() -> new NotFoundException("No approval request " + requestId));
+        return readModels.auditTimeline(req.target()).events().stream()
+                .filter(e -> requestId.equals(e.attributes().get("requestId")))
+                .toList();
     }
 
     /** {@code POST /api/approvals/{requestId}/approve} — checker approves (APPROVER, must differ from maker). */

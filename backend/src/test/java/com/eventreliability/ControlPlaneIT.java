@@ -269,6 +269,15 @@ class ControlPlaneIT {
             assertThat(detail.auditTimeline()).extracting(AuditEvent::action).contains(
                     "REPLAY_REQUESTED", "REPLAY_RETURNED", "REPLAY_RESUBMITTED", "REPLAY_APPROVED", "REPLAYED");
         });
+
+        // The per-request history endpoint returns just this request's maker-checker round-trip.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            AuditEvent[] history =
+                    rest.getForObject("/api/approvals/" + requestId + "/history", AuditEvent[].class);
+            assertThat(history).extracting(AuditEvent::action).contains(
+                    "REPLAY_REQUESTED", "REPLAY_RETURNED", "REPLAY_RESUBMITTED", "REPLAY_APPROVED");
+            assertThat(history).allMatch(e -> id.equals(e.correlationId()));
+        });
     }
 
     private <T> ResponseEntity<T> post(String url, String actor, Object body, Class<T> type) {
