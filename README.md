@@ -7,6 +7,9 @@
 
 Named after **Max Brod**, who rescued Kafka's manuscripts from being burned.
 
+> 🏃 **Running it locally?** See **[HOW_TO_RUN.md](HOW_TO_RUN.md)** — the full step-by-step runbook
+> (Kafka → backend → sample producer → Flutter console), with troubleshooting.
+
 ---
 
 ## The problem it retires
