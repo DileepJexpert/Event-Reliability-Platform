@@ -110,6 +110,22 @@
                     </excludes>
                 </configuration>
             </plugin>
+            <!--
+              Failsafe runs the @EmbeddedKafka integration tests (*IT) in the integration-test/verify
+              phase. `mvn test` runs the fast unit tests; `mvn verify` runs the full suite.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

@@ -32,17 +32,17 @@ public class ClassificationListener {
     private static final Logger log = LoggerFactory.getLogger(ClassificationListener.class);
 
     private final FailureRecordFactory recordFactory;
-    private final ClassificationService classificationService;
+    private final Classifier classifier;
     private final StateService stateService;
     private final AuditService auditService;
     private final RoutingService routingService;
     private final PlatformMetrics metrics;
 
-    public ClassificationListener(FailureRecordFactory recordFactory, ClassificationService classificationService,
+    public ClassificationListener(FailureRecordFactory recordFactory, Classifier classifier,
                                   StateService stateService, AuditService auditService,
                                   RoutingService routingService, PlatformMetrics metrics) {
         this.recordFactory = recordFactory;
-        this.classificationService = classificationService;
+        this.classifier = classifier;
         this.stateService = stateService;
         this.auditService = auditService;
         this.routingService = routingService;
@@ -62,7 +62,7 @@ public class ClassificationListener {
 
         FailureRecord existing = stateService.find(correlationId).orElse(null);
 
-        ClassificationResult result = classificationService.classify(
+        ClassificationResult result = classifier.classify(
                 FailureHeaders.getString(h, FailureHeaders.EXCEPTION_CLASS),
                 FailureHeaders.getString(h, FailureHeaders.EXCEPTION_MESSAGE));
 
@@ -80,7 +80,7 @@ public class ClassificationListener {
         auditService.system(correlationId,
                 existing == null ? MessageState.RECEIVED : existing.state(), MessageState.CLASSIFIED,
                 "CLASSIFIED",
-                result.classification() + " via '" + result.matchedRule() + "' → " + result.action());
+                result.classification() + " via rule '" + result.matchedRule() + "' → " + result.action());
 
         metrics.classified(result.classification());
         routingService.route(classified, record.value(), h);

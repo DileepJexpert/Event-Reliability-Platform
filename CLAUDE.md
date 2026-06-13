@@ -20,9 +20,11 @@ into automatic triage-and-recovery. Two deployables only: a **Spring Boot backen
 ```bash
 cd backend
 mvn -q -DskipTests compile     # compile
-mvn -q test                    # 16 tests on an in-process Kafka broker (@EmbeddedKafka)
+mvn -q test                    # fast unit tests (Surefire)
+mvn -q verify                  # full suite: unit + 9 @EmbeddedKafka integration tests (*IT, Failsafe)
 ```
 
+Integration tests are named `*IT` and run under Failsafe (`mvn verify`), not Surefire (`mvn test`).
 Tests need no external Kafka. Running the service does: `docker compose up -d` (KRaft broker on
 `localhost:9092`), then `mvn spring-boot:run`.
 

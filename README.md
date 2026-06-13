@@ -139,14 +139,15 @@ return **202 Accepted**; exactly one instance executes it.
 ## Testing
 
 ```bash
-cd backend && mvn test
+cd backend && mvn verify     # full suite; `mvn test` runs only the fast unit tests
 ```
 
-16 tests run against an **in-process Kafka broker** (`@EmbeddedKafka`) and cover the whole platform
-end to end: ingestion → classification → routing into all four lanes, the tiered-retry pause/seek
-delay loop → re-drive → presumed-resolved, windowed pattern detection raising an incident, the
-control plane over real HTTP (single + bulk replay with audit), and the observability surface
-(Actuator health + Prometheus meters), plus unit tests for the classifier and the SSE hub.
+16 tests run against an **in-process Kafka broker** (`@EmbeddedKafka`, no external Kafka needed): 7
+fast unit tests (Surefire) for the classifier and SSE hub, plus 9 integration tests (`*IT`, Failsafe)
+covering the whole platform end to end — ingestion → classification → routing into all four lanes, the
+tiered-retry pause/seek delay loop → re-drive → presumed-resolved, windowed pattern detection raising
+an incident, the control plane over real HTTP (single + bulk replay with audit), and the observability
+surface (Actuator health + Prometheus meters).
 
 ## Configuration highlights (`reliability.*`, see `backend/src/main/resources/application.yml`)
 
@@ -158,34 +159,11 @@ control plane over real HTTP (single + bulk replay with audit), and the observab
 | `reliability.pattern.window` / `.threshold` | `5m` / `500` | Incident detection window & threshold. |
 | `reliability.notifier.*` | disabled / `log` | Incident notifier (`log` or `webhook`). |
 | `reliability.housekeeping.*` | – | Sweep interval, resolve-grace, terminal retention (TTL). |
-| `reliability.classification.llm.*` | disabled | Optional LLM-assisted classification via self-hosted Ollama (§11). |
 
 Classification rules are externalised in
 [`backend/src/main/resources/classification-rules.yml`](backend/src/main/resources/classification-rules.yml)
-— edit them without redeploying.
-
-### Optional: LLM-assisted classification (Ollama, §11)
-
-The deterministic rule table always runs first. You can optionally enable a **self-hosted LLM** to
-classify ambiguous (`UNKNOWN`) failures — consistent with the "no external SaaS" ethos: it's your
-laptop locally, and an internal endpoint at the bank. It runs on the async classification path, so it
-never throttles ingestion, and any LLM error falls back to the conservative rule result.
-
-```bash
-# Local laptop: run Ollama, then start the backend with the LLM enabled.
-ollama serve &
-ollama pull llama3.1
-cd backend && RELIABILITY_LLM_ENABLED=true OLLAMA_MODEL=llama3.1 mvn spring-boot:run
-```
-
-| Env var | Default | Meaning |
-| --- | --- | --- |
-| `RELIABILITY_LLM_ENABLED` | `false` | Turn the LLM fallback on. |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint (laptop → bank internal host). |
-| `OLLAMA_MODEL` | `llama3.1` | Model to run. |
-| `RELIABILITY_LLM_MODE` | `unknown-only` | `unknown-only` (ambiguous cases) or `always`. |
-
-At IDFC, leave it disabled or point `OLLAMA_BASE_URL` at the bank's internal LLM host — no code change.
+— edit them without redeploying. Classification is **fully deterministic** (no AI): every decision
+traces to a named rule in the audit log.
 
 ## Correctness guarantees called out by the spec (§18)
 

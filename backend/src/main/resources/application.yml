@@ -63,17 +63,6 @@ server:
 # ---- Platform configuration (§4, §8, §10, §14) ----
 reliability:
   topic-prefix: ${RELIABILITY_TOPIC_PREFIX:reliability.}
-  # Optional LLM-assisted classification via a self-hosted Ollama server (§11). Off by default; the
-  # deterministic rule table (classification-rules.yml) always runs first. Enable for local testing
-  # with RELIABILITY_LLM_ENABLED=true and a running `ollama serve` on the laptop. Runs on the async
-  # classification path, so it never throttles ingestion.
-  classification:
-    llm:
-      enabled: ${RELIABILITY_LLM_ENABLED:false}
-      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-      model: ${OLLAMA_MODEL:llama3.1}
-      timeout: ${RELIABILITY_LLM_TIMEOUT:20s}
-      mode: ${RELIABILITY_LLM_MODE:unknown-only}   # unknown-only | always
   topics:
     partitions: ${RELIABILITY_TOPIC_PARTITIONS:3}
     replication-factor: ${RELIABILITY_TOPIC_RF:1}

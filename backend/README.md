@@ -6,12 +6,14 @@ See the [root README](../README.md) for the product overview and [docs/](../docs
 ## Build & test
 
 ```bash
-mvn clean test        # 16 tests against an in-process Kafka broker (@EmbeddedKafka)
+mvn clean test        # fast unit tests (Surefire)
+mvn clean verify      # full suite: 7 unit + 9 @EmbeddedKafka integration tests (*IT, Failsafe)
 mvn clean package     # builds target/event-reliability-service.jar
 ```
 
-No external Kafka is needed for the tests. To run the service you do need a broker
-(`docker compose up -d` from the repo root starts one on `localhost:9092`).
+Integration tests are named `*IT` and run under the Failsafe plugin (`mvn verify`). No external Kafka
+is needed for the tests. To run the service you do need a broker (`docker compose up -d` from the repo
+root starts one on `localhost:9092`).
 
 ## Run
 
