@@ -22,6 +22,7 @@ class AuthState {
   });
 
   bool get isOperator => roles.contains('OPERATOR');
+  bool get isApprover => roles.contains('APPROVER');
   bool get isViewer => roles.contains('VIEWER') || roles.contains('OPERATOR');
 }
 
@@ -36,10 +37,21 @@ class AuthService extends ChangeNotifier {
   AuthState get state => _state;
   String? get token => _state.accessToken;
 
+  /// The user the console acts as for audited actions, sent as the {@code X-Actor} header. In dev it
+  /// is editable so a single browser can play both maker and checker (the backend honours the header
+  /// only when there is no real identity); under OIDC it is the authenticated identity.
+  String _actingAs = 'dev-operator';
+  String get actingAs => _actingAs;
+  void setActingAs(String who) {
+    final value = who.trim();
+    _actingAs = value.isEmpty ? _state.username : value;
+    notifyListeners();
+  }
+
   Future<void> bootstrap() async {
     if (!AppConfig.isOidc) {
       _state = const AuthState(
-          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR']);
+          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR', 'APPROVER']);
       notifyListeners();
       return;
     }
@@ -52,7 +64,7 @@ class AuthService extends ChangeNotifier {
   Future<void> login() async {
     if (!AppConfig.isOidc) {
       _state = const AuthState(
-          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR']);
+          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR', 'APPROVER']);
       notifyListeners();
       return;
     }
@@ -83,6 +95,7 @@ class AuthService extends ChangeNotifier {
     final roles = (claims['roles'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [];
     final username = (claims['preferred_username'] ?? claims['sub'] ?? 'user').toString();
     _state = AuthState(authenticated: true, accessToken: token, username: username, roles: roles);
+    _actingAs = username;
     notifyListeners();
   }
 

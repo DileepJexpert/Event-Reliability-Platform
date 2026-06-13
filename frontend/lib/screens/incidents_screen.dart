@@ -49,7 +49,7 @@ class _IncidentsScreenState extends State<IncidentsScreen> {
       await context.read<ApiClient>().bulkReplay(incident.id, reason: reason.isEmpty ? null : reason);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Bulk replay accepted')));
+          .showSnackBar(const SnackBar(content: Text('Bulk replay requested — awaiting approval')));
       await _load();
     } catch (e) {
       if (!mounted) return;
