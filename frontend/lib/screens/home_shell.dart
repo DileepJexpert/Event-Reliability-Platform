@@ -150,7 +150,7 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  /// Dev-only quick identity switch in the top bar: hop between the maker (Alice) and checker (Bob)
+  /// Dev-only quick identity switch in the top bar: hop between the maker (Dileep) and checker (Somokh)
   /// without signing out, so the 4-eyes flow can be shown back-to-back. Swaps roles + the X-Actor.
   Widget _demoSwitcher(AuthService auth) {
     final current = auth.state.username;

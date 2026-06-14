@@ -174,8 +174,8 @@ Replays are bank-grade by default:
 ## 10. The console (what to show)
 
 Login (dev/demo mode) offers two fixed identities; a top-bar switch hops between them instantly:
-- **Alice · Maker** (Operator) — raises replay / quarantine requests.
-- **Bob · Checker** (Approver) — approves / rejects requests.
+- **Dileep · Maker** (Operator) — raises replay / quarantine requests.
+- **Somokh · Checker** (Approver) — approves / rejects requests.
 
 | Screen | What it shows |
 |---|---|
@@ -215,11 +215,11 @@ timeline** (RECEIVED → CLASSIFIED → PARKED_UNKNOWN).
 **Source app = sample-payments-service**) → only that team's failures.
 
 **4. Correct-and-replay (4-eyes).**
-   - Top bar → **Alice · Maker** → open `DEMO-001` → **Request replay** → edit the payload to add
+   - Top bar → **Dileep · Maker** → open `DEMO-001` → **Request replay** → edit the payload to add
      `"simulateFailure": false` → submit (now PENDING).
-   - Top bar → **Bob · Checker** → **Approvals** → **Approve**.
+   - Top bar → **Somokh · Checker** → **Approvals** → **Approve**.
    - The message is replayed to `payments.transactions`; the sample consumer logs **Processed OK**.
-   - The audit timeline now shows *requested by alice → approved by bob → REPLAYED*.
+   - The audit timeline now shows *requested by dileep → approved by somokh → REPLAYED*.
 
 **5. Show the taxonomy lanes** (optional) — fire one of each and show where they land:
 ```bash

@@ -17,8 +17,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   // Per-username presentation (icon + accent) for the dev demo identities.
   static const Map<String, (IconData, Color)> _style = {
-    'alice': (Icons.engineering, Color(0xFF1F4E79)),
-    'bob': (Icons.verified_user, Color(0xFF0B6E66)),
+    'dileep': (Icons.engineering, Color(0xFF1F4E79)),
+    'somokh': (Icons.verified_user, Color(0xFF0B6E66)),
   };
 
   bool _busy = false;
