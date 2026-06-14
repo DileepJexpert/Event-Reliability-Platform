@@ -8,6 +8,7 @@ import 'failure_detail_screen.dart';
 
 /// Dashboard (§16): an operations overview — KPI cards, breakdowns by classification / source topic /
 /// owning app, active-incident banner and a recent-failures table — updating live from the SSE feed.
+/// The whole page scrolls so the recent-failures table is always fully usable.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -15,8 +16,8 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<DashboardState>(
       builder: (context, state, _) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -28,17 +29,19 @@ class DashboardScreen extends StatelessWidget {
               ],
               _kpiRow(state),
               const SizedBox(height: 14),
-              SizedBox(height: 232, child: _breakdowns(state)),
-              const SizedBox(height: 16),
+              SizedBox(height: 250, child: _breakdowns(state)),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Text('Recent failures', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(width: 8),
-                  Text('newest first', style: Theme.of(context).textTheme.bodySmall),
+                  Text('newest ${state.recentFailures.length > 15 ? 15 : state.recentFailures.length}'
+                      ' · open Failures for the full list',
+                      style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
               const SizedBox(height: 8),
-              Expanded(child: _recentTable(context, state)),
+              _recentTable(context, state),
             ],
           ),
         );
@@ -151,7 +154,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ---- Breakdown panels ----
+  // ---- Breakdown panels (fixed-height row; each panel scrolls internally if needed) ----
 
   Widget _breakdowns(DashboardState state) {
     return Row(
@@ -258,10 +261,10 @@ class DashboardScreen extends StatelessWidget {
     return {for (final e in entries.take(6)) e.key: e.value};
   }
 
-  // ---- Recent failures table ----
+  // ---- Recent failures table (intrinsic height; the page scrolls) ----
 
   Widget _recentTable(BuildContext context, DashboardState state) {
-    final rows = state.recentFailures;
+    final rows = state.recentFailures.take(15).toList();
     if (rows.isEmpty) {
       return Card(
         child: Center(
@@ -275,24 +278,20 @@ class DashboardScreen extends StatelessWidget {
     }
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: Scrollbar(
-        child: SingleChildScrollView(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 120),
-              child: DataTable(
-                showCheckboxColumn: false,
-                columns: const [
-                  DataColumn(label: Text('Class')),
-                  DataColumn(label: Text('State')),
-                  DataColumn(label: Text('Source topic')),
-                  DataColumn(label: Text('Exception')),
-                  DataColumn(label: Text('Updated')),
-                ],
-                rows: rows.map((f) => _recentRow(context, f)).toList(),
-              ),
-            ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 120),
+          child: DataTable(
+            showCheckboxColumn: false,
+            columns: const [
+              DataColumn(label: Text('Class')),
+              DataColumn(label: Text('State')),
+              DataColumn(label: Text('Source topic')),
+              DataColumn(label: Text('Exception')),
+              DataColumn(label: Text('Updated')),
+            ],
+            rows: rows.map((f) => _recentRow(context, f)).toList(),
           ),
         ),
       ),
