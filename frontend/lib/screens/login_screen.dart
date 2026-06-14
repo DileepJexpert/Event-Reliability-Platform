@@ -4,8 +4,9 @@ import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../services/auth_service.dart';
 
-/// Login screen (§16). In OIDC mode it launches the bank SSO flow; in dev mode it grants a local
-/// operator identity so the console works against the backend's permissive profile.
+/// Login screen (§16). In OIDC mode it launches the bank SSO flow. In dev mode it offers the fixed
+/// demo identities ([kDemoUsers]) — a maker (Operator) and a checker (Approver) — so the maker-checker
+/// (4-eyes) flow can be demoed as two separate logins without an IdP.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -14,10 +15,16 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Per-username presentation (icon + accent) for the dev demo identities.
+  static const Map<String, (IconData, Color)> _style = {
+    'alice': (Icons.engineering, Color(0xFF1F4E79)),
+    'bob': (Icons.verified_user, Color(0xFF0B6E66)),
+  };
+
   bool _busy = false;
   String? _error;
 
-  Future<void> _signIn() async {
+  Future<void> _signInOidc() async {
     setState(() {
       _busy = true;
       _error = null;
@@ -36,43 +43,91 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 460),
           child: Card(
             margin: const EdgeInsets.all(24),
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.shield_moon, size: 56, color: Colors.indigo),
+                  const Icon(Icons.shield_moon, size: 52, color: Color(0xFF1F4E79)),
                   const SizedBox(height: 12),
                   Text('Event Reliability Console',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      textAlign: TextAlign.center),
+                      style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
                   const SizedBox(height: 4),
                   Text('Brod — DLQ triage & recovery',
-                      style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 28),
+                      style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+                  const SizedBox(height: 26),
                   if (_error != null) ...[
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    Text(_error!,
+                        style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
                     const SizedBox(height: 12),
                   ],
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _signIn,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.login),
-                    label: Text(AppConfig.isOidc ? 'Sign in with SSO' : 'Continue (dev)'),
-                  ),
+                  if (AppConfig.isOidc)
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _signInOidc,
+                      icon: _busy
+                          ? const SizedBox(
+                              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.login),
+                      label: const Text('Sign in with SSO'),
+                    )
+                  else ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Demo sign-in — choose a role',
+                          style: Theme.of(context).textTheme.labelLarge),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final u in kDemoUsers) ...[
+                      _devUser(u),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
                   const SizedBox(height: 8),
                   Text('Mode: ${AppConfig.authMode} · ${AppConfig.apiBaseUrl}',
-                      style: Theme.of(context).textTheme.bodySmall),
+                      style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _devUser(DemoUser u) {
+    final (icon, color) = _style[u.username] ?? (Icons.person, const Color(0xFF1F4E79));
+    return OutlinedButton(
+      onPressed: () => context.read<AuthService>().loginAsDev(u.username, u.roles),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.all(14),
+        alignment: Alignment.centerLeft,
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: color.withOpacity(0.14),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('${u.label} · ${u.role}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(u.description, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward, size: 18),
+        ],
       ),
     );
   }

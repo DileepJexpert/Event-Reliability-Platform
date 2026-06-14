@@ -6,6 +6,25 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../config/app_config.dart';
 
+/// Fixed demo identities for the dev showcase (no IdP): a maker and a checker, so the maker-checker
+/// (4-eyes) flow can be shown as two separate logins and switched from the top bar. Dev-only — real
+/// deployments use OIDC and the token's `roles` claim.
+class DemoUser {
+  final String username;
+  final String label;
+  final String role;
+  final String description;
+  final List<String> roles;
+  const DemoUser(this.username, this.label, this.role, this.description, this.roles);
+}
+
+const List<DemoUser> kDemoUsers = [
+  DemoUser('alice', 'Alice', 'Maker', 'Operator — raises replay / quarantine requests',
+      ['VIEWER', 'OPERATOR']),
+  DemoUser('bob', 'Bob', 'Checker', 'Approver — approves / rejects requests (4-eyes)',
+      ['VIEWER', 'APPROVER']),
+];
+
 /// Authentication state exposed to the UI. Roles come from the OIDC token's `roles` claim and gate
 /// the operator actions (replay / quarantine / bulk-replay), mirroring the backend (§17).
 class AuthState {
@@ -50,9 +69,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     if (!AppConfig.isOidc) {
-      _state = const AuthState(
-          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR', 'APPROVER']);
-      notifyListeners();
+      // Dev: don't auto-login — show the login screen so a demo maker/checker can be picked.
       return;
     }
     final stored = await _storage.read(key: 'access_token');
@@ -82,6 +99,15 @@ class AuthService extends ChangeNotifier {
       await _storage.write(key: 'access_token', value: accessToken);
       _applyToken(accessToken);
     }
+  }
+
+  /// Dev-only: sign in as a fixed demo identity (no IdP), so a maker and a checker appear as two
+  /// separate logins for a showcase. The roles gate the UI exactly as the OIDC `roles` claim would,
+  /// and the username is sent as the X-Actor header for audit + the distinct-checker (4-eyes) rule.
+  void loginAsDev(String username, List<String> roles) {
+    _state = AuthState(authenticated: true, username: username, roles: List.unmodifiable(roles));
+    _actingAs = username;
+    notifyListeners();
   }
 
   Future<void> logout() async {

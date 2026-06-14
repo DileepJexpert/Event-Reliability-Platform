@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config/app_config.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/event_stream.dart';
@@ -85,6 +86,28 @@ class _HomeShellState extends State<HomeShell> {
     return ChangeNotifierProvider<DashboardState>.value(
       value: _dashboard,
       child: Scaffold(
+        appBar: AppBar(
+          titleSpacing: 16,
+          title: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.shield_moon, size: 20),
+              SizedBox(width: 8),
+              Text('Event Reliability Console',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [
+            if (!AppConfig.isOidc) _demoSwitcher(auth) else _userLabel(auth),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout),
+              onPressed: () => context.read<AuthService>().logout(),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
         body: Row(
           children: [
             NavigationRail(
@@ -123,6 +146,45 @@ class _HomeShellState extends State<HomeShell> {
             Expanded(child: _pages[_index]),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Dev-only quick identity switch in the top bar: hop between the maker (Alice) and checker (Bob)
+  /// without signing out, so the 4-eyes flow can be shown back-to-back. Swaps roles + the X-Actor.
+  Widget _demoSwitcher(AuthService auth) {
+    final current = auth.state.username;
+    final selected = kDemoUsers.any((u) => u.username == current) ? current : kDemoUsers.first.username;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Demo:', style: TextStyle(fontSize: 12)),
+        const SizedBox(width: 8),
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          segments: [
+            for (final u in kDemoUsers)
+              ButtonSegment<String>(value: u.username, label: Text('${u.label} · ${u.role}')),
+          ],
+          selected: {selected},
+          onSelectionChanged: (sel) {
+            final u = kDemoUsers.firstWhere((x) => x.username == sel.first);
+            auth.loginAsDev(u.username, u.roles);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _userLabel(AuthService auth) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Text(auth.state.username, style: const TextStyle(fontSize: 13)),
       ),
     );
   }
