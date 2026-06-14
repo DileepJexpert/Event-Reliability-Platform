@@ -63,6 +63,11 @@ server:
 # ---- Platform configuration (§4, §8, §10, §14) ----
 reliability:
   topic-prefix: ${RELIABILITY_TOPIC_PREFIX:reliability.}
+  # Inbound correlation-id header (§6.3). Apps onboarded here emit the id as `correlationId`; the
+  # platform's native `x-correlation-id` is always retained as a fallback alias, so existing
+  # producers keep working. Comma-separated to add more aliases, highest priority first.
+  headers:
+    correlation-id: ${RELIABILITY_CORRELATION_ID_HEADERS:correlationId}
   topics:
     partitions: ${RELIABILITY_TOPIC_PARTITIONS:3}
     replication-factor: ${RELIABILITY_TOPIC_RF:1}

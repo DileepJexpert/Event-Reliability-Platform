@@ -2,7 +2,10 @@ package com.eventreliability.config;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+
+import com.eventreliability.domain.FailureHeaders;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
@@ -27,8 +30,35 @@ public record ReliabilityProperties(
         @DefaultValue Pattern pattern,
         @DefaultValue Notifier notifier,
         @DefaultValue Housekeeping housekeeping,
-        @DefaultValue Replay replay
+        @DefaultValue Replay replay,
+        @DefaultValue Headers headers
 ) {
+
+    /**
+     * Inbound header-contract mapping (§6.3). Lets an onboarding org point the platform at the
+     * correlation-id header their apps already emit (e.g. {@code correlationId}) instead of forcing
+     * every producer to add the platform's native {@code x-correlation-id}. The native header is
+     * always retained as a final fallback alias, so configuring this only <em>adds</em> higher-priority
+     * names — it never removes backward compatibility.
+     */
+    public record Headers(
+            /** Header names searched, in priority order, for the inbound correlation id. */
+            @DefaultValue("correlationId") List<String> correlationId
+    ) {
+        public Headers {
+            LinkedHashSet<String> ordered = new LinkedHashSet<>();
+            if (correlationId != null) {
+                for (String name : correlationId) {
+                    if (name != null && !name.isBlank()) {
+                        ordered.add(name.trim());
+                    }
+                }
+            }
+            // The platform's native header is always honoured as a final fallback (§6.3).
+            ordered.add(FailureHeaders.CORRELATION_ID);
+            correlationId = List.copyOf(ordered);
+        }
+    }
 
     /** Topic provisioning defaults (auto-create is disabled on target clusters — §8/§18.5). */
     public record Topics(
