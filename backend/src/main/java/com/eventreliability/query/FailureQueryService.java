@@ -30,14 +30,17 @@ public class FailureQueryService {
         this.readModels = readModels;
     }
 
-    public PageDto<FailureSummaryDto> list(MessageState status, String topic,
+    public PageDto<FailureSummaryDto> list(MessageState status, String topic, String sourceApp,
                                            FailureClassification classification, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
+        String appNeedle = sourceApp == null ? null : sourceApp.toLowerCase();
 
         List<FailureRecord> filtered = readModels.allFailures().stream()
                 .filter(r -> status == null || r.state() == status)
                 .filter(r -> topic == null || topic.isBlank() || topic.equals(r.originalTopic()))
+                .filter(r -> appNeedle == null || appNeedle.isBlank()
+                        || (r.sourceApp() != null && r.sourceApp().toLowerCase().contains(appNeedle)))
                 .filter(r -> classification == null || r.classification() == classification)
                 .sorted(Comparator.comparingLong((FailureRecord r) ->
                         r.updatedAt() == null ? 0L : r.updatedAt()).reversed())
