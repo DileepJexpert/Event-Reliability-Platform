@@ -50,9 +50,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     if (!AppConfig.isOidc) {
-      _state = const AuthState(
-          authenticated: true, username: 'dev-operator', roles: ['VIEWER', 'OPERATOR', 'APPROVER']);
-      notifyListeners();
+      // Dev: don't auto-login — show the login screen so a demo maker/checker can be picked.
       return;
     }
     final stored = await _storage.read(key: 'access_token');
@@ -82,6 +80,15 @@ class AuthService extends ChangeNotifier {
       await _storage.write(key: 'access_token', value: accessToken);
       _applyToken(accessToken);
     }
+  }
+
+  /// Dev-only: sign in as a fixed demo identity (no IdP), so a maker and a checker appear as two
+  /// separate logins for a showcase. The roles gate the UI exactly as the OIDC `roles` claim would,
+  /// and the username is sent as the X-Actor header for audit + the distinct-checker (4-eyes) rule.
+  void loginAsDev(String username, List<String> roles) {
+    _state = AuthState(authenticated: true, username: username, roles: List.unmodifiable(roles));
+    _actingAs = username;
+    notifyListeners();
   }
 
   Future<void> logout() async {
