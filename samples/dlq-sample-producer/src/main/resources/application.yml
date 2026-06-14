@@ -19,9 +19,9 @@ server:
 
 # ---- Sample-producer settings ----
 dlq:
-  # The platform's DLQ ingestion topic == <reliability.topic-prefix> + "failures.inbound".
+  # The platform's DLQ ingestion topic == <reliability.topic-prefix> + "dlq.inbound".
   # Keep this in sync with the backend's reliability.topic-prefix (default "reliability.").
-  topic: ${DLQ_TOPIC:reliability.failures.inbound}
+  topic: ${DLQ_TOPIC:reliability.dlq.inbound}
   # Goes into the x-source-app header — i.e. "which app produced this failure".
   source-app: ${DLQ_SOURCE_APP:sample-payments-service}
   # Publish one of each sample failure on startup so the platform lights up immediately.

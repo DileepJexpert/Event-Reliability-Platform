@@ -69,7 +69,7 @@ curl http://localhost:8080/api/failures             # [] until you send failures
 ## 3. Send test failures (sample producer)
 
 The sample app plays an "owning application" that republishes failures to the DLQ topic
-(`reliability.failures.inbound`) with the correct headers.
+(`reliability.dlq.inbound`) with the correct headers.
 
 ```bash
 cd samples/dlq-sample-producer

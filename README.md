@@ -44,7 +44,7 @@ regulated buyers.
 ## Architecture at a glance
 
 ```
- owning apps ──(failure-header contract)──▶  reliability.failures.inbound
+ owning apps ──(failure-header contract)──▶  reliability.dlq.inbound
                                                      │
         ┌────────────────────────────────────────────┼─────────────────────────────────────┐
         │  ONE Spring Boot monolith (N replicas, one consumer group)                          │
@@ -101,7 +101,7 @@ Health & metrics: <http://localhost:8080/actuator/health> ·
 
 ### 3. Produce a test failure
 
-Republish any message to `reliability.failures.inbound` with the failure headers (§6.3). For example
+Republish any message to `reliability.dlq.inbound` with the failure headers (§6.3). For example
 with the console producer (headers support varies by tool) or from a small app — see
 [`docs/ONBOARDING.md`](docs/ONBOARDING.md) for the exact header contract and a producer snippet.
 

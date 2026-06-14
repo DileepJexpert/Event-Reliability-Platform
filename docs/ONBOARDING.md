@@ -7,7 +7,7 @@ treated as **opaque bytes**.
 
 ## The failure-header contract (§6.3)
 
-Publish to `reliability.failures.inbound` (default prefix) with:
+Publish to `reliability.dlq.inbound` (default prefix) with:
 
 | Header | Required | Meaning |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ first failure).
 ```java
 // Inside your consumer's error handler, when processing fails:
 ProducerRecord<String, byte[]> failure =
-        new ProducerRecord<>("reliability.failures.inbound", null, correlationId, originalPayloadBytes);
+        new ProducerRecord<>("reliability.dlq.inbound", null, correlationId, originalPayloadBytes);
 Headers h = failure.headers();
 h.add("x-correlation-id",  correlationId.getBytes(UTF_8));
 h.add("x-original-topic",  record.topic().getBytes(UTF_8));

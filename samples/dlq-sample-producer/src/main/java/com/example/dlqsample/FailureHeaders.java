@@ -3,7 +3,7 @@ package com.example.dlqsample;
 /**
  * The failure-header contract the Event Reliability Platform consumes (§6.3) — the ONLY thing an
  * owning application has to adopt. When your consumer cannot process a message, republish it to the
- * platform's DLQ topic ({@code <prefix>failures.inbound}) carrying these headers. The platform reasons
+ * platform's DLQ topic ({@code <prefix>dlq.inbound}) carrying these headers. The platform reasons
  * over these headers and treats the payload body as opaque bytes.
  *
  * <p>Copied verbatim from the platform so this sample stands alone.

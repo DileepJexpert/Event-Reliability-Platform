@@ -28,7 +28,7 @@ public class TopicNames {
 
     /** Entry point for all failures (§8). */
     public String inbound() {
-        return n("failures.inbound");
+        return n("dlq.inbound");
     }
 
     /**
