@@ -2,7 +2,7 @@
 
 A tiny standalone Spring Boot app that plays the role of an **owning application** for the
 **Event Reliability Platform**. It does not consume anything — it republishes "failed" events to the
-platform's DLQ topic (`reliability.failures.inbound`) with the full failure-header contract, so you
+platform's DLQ topic (`reliability.dlq.inbound`) with the full failure-header contract, so you
 can watch the platform classify, retry, route, quarantine and park them.
 
 > This is a **test helper**, not part of the platform monolith. Run it as a separate process.
@@ -123,7 +123,7 @@ curl -X POST "http://localhost:8081/send/storm?count=30"
 | Env var | Default | Meaning |
 | --- | --- | --- |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Broker to publish to. |
-| `DLQ_TOPIC` | `reliability.failures.inbound` | DLQ topic — must match the backend's `reliability.topic-prefix` + `failures.inbound`. |
+| `DLQ_TOPIC` | `reliability.dlq.inbound` | DLQ topic — must match the backend's `reliability.topic-prefix` + `dlq.inbound`. |
 | `DLQ_SOURCE_APP` | `sample-payments-service` | Value of the `x-source-app` header. |
 | `DLQ_AUTOSEND` | `true` | Send one of each on startup. |
 | `SERVER_PORT` | `8081` | This app's HTTP port (8080 is the platform). |
@@ -132,7 +132,7 @@ curl -X POST "http://localhost:8081/send/storm?count=30"
 
 ## The header contract (the only thing a real app must adopt)
 
-When your consumer gives up on a message, republish it to `reliability.failures.inbound` with these
+When your consumer gives up on a message, republish it to `reliability.dlq.inbound` with these
 headers (see `FailureHeaders.java` / `DlqFailureProducer.java`):
 
 | Header | Required | Notes |

@@ -20,7 +20,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Ingestion (§7.1 step 1). Consumes {@code reliability.failures.inbound}, records the message as
+ * Ingestion (§7.1 step 1). Consumes {@code reliability.dlq.inbound}, records the message as
  * {@link MessageState#RECEIVED} in the compacted state topic (capturing headers + opaque payload for
  * later replay), appends an audit entry, and forwards the message — headers and payload preserved —
  * to the internal classification topic, keyed by correlation id.

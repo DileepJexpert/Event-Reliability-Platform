@@ -12,6 +12,18 @@ spring:
         # Fail fast with a clear message if the platform hasn't provisioned the topic yet
         # (the broker has auto-create disabled, so the topic only exists once the backend has started).
         max.block.ms: 12000
+    # Consumer side: this sample now also plays a real owning application — it consumes the business
+    # topic it produced to (POST /produce), simulates a processing failure, retries, then routes the
+    # message to the platform DLQ. (The original /send/* endpoints still publish straight to the DLQ.)
+    consumer:
+      group-id: ${SIM_CONSUMER_GROUP:dlq-sample-consumer}
+      # Only handle new messages we produce/replay — don't reprocess the whole business topic on restart.
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      # The business topic is created by SampleTopics at startup; tolerate the brief window before it appears.
+      missing-topics-fatal: false
 
 server:
   # 8081 so it does not clash with the platform backend on 8080.
@@ -19,16 +31,24 @@ server:
 
 # ---- Sample-producer settings ----
 dlq:
-  # The platform's DLQ ingestion topic == <reliability.topic-prefix> + "failures.inbound".
+  # The platform's DLQ ingestion topic == <reliability.topic-prefix> + "dlq.inbound".
   # Keep this in sync with the backend's reliability.topic-prefix (default "reliability.").
-  topic: ${DLQ_TOPIC:reliability.failures.inbound}
+  topic: ${DLQ_TOPIC:reliability.dlq.inbound}
   # Goes into the x-source-app header — i.e. "which app produced this failure".
   source-app: ${DLQ_SOURCE_APP:sample-payments-service}
   # Publish one of each sample failure on startup so the platform lights up immediately.
   autosend-on-startup: ${DLQ_AUTOSEND:true}
 
+# ---- Realistic produce -> consume -> retry -> DLQ flow (POST /produce) ----
+sim:
+  # Business topic this sample produces to and consumes from (SampleTopics creates it on startup).
+  business-topic: ${SIM_BUSINESS_TOPIC:payments.transactions}
+  # Total consume attempts before the failed message is routed to the platform DLQ.
+  max-attempts: ${SIM_MAX_ATTEMPTS:3}
+
 logging:
   level:
     com.example.dlqsample: INFO
     org.apache.kafka.clients.producer.ProducerConfig: WARN
+    org.apache.kafka.clients.consumer.ConsumerConfig: WARN
     org.apache.kafka.clients.admin: WARN

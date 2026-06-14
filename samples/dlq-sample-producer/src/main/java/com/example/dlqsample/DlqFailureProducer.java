@@ -1,10 +1,13 @@
 package com.example.dlqsample;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Headers;
 import org.slf4j.Logger;
@@ -74,6 +77,44 @@ public class DlqFailureProducer {
         log.info("-> '{}'  storm of {} x [{}]  (shared root cause -> expect an incident)",
                 topic, count, template.label());
         return count;
+    }
+
+    /**
+     * Route a record that an owning consumer failed to process (after its retries) onto the platform
+     * DLQ, carrying the real exception and the original topic/partition/offset — exactly the contract a
+     * real application adopts. Used by {@link SimConsumerConfig}'s recoverer.
+     */
+    public void sendFromFailedConsume(ConsumerRecord<String, String> rec, Exception ex, int attempts) {
+        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+        String correlationId = rec.key() != null ? rec.key() : UUID.randomUUID().toString();
+        ProducerRecord<String, String> out = new ProducerRecord<>(topic, null, correlationId, rec.value());
+        Headers h = out.headers();
+        put(h, FailureHeaders.CORRELATION_ID, correlationId);
+        put(h, FailureHeaders.ORIGINAL_TOPIC, rec.topic());
+        put(h, FailureHeaders.ORIGINAL_PARTITION, Integer.toString(rec.partition()));
+        put(h, FailureHeaders.ORIGINAL_OFFSET, Long.toString(rec.offset()));
+        put(h, FailureHeaders.EXCEPTION_CLASS, cause.getClass().getName());
+        put(h, FailureHeaders.EXCEPTION_MESSAGE, String.valueOf(cause.getMessage()));
+        put(h, FailureHeaders.STACKTRACE, stackTrace(cause));
+        put(h, FailureHeaders.ATTEMPT_COUNT, Integer.toString(attempts));
+        put(h, FailureHeaders.FIRST_FAILED_AT, Long.toString(System.currentTimeMillis()));
+        put(h, FailureHeaders.SOURCE_APP, sourceApp);
+        // Bare version number — the platform prepends "v" itself in the root-cause signature (#v1).
+        put(h, FailureHeaders.SCHEMA_VERSION, "1");
+        try {
+            kafka.send(out).get(12, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(friendlyHint(e), e);
+        }
+        log.info("DLQ <- '{}'  after {} failed attempts  corr={}  ex={}",
+                topic, attempts, correlationId, cause.getClass().getName());
+    }
+
+    private static String stackTrace(Throwable t) {
+        StringWriter sw = new StringWriter();
+        t.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
     }
 
     private void stampHeaders(Headers h, String correlationId, SampleFailure f) {

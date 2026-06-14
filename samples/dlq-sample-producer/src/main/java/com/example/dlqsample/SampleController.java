@@ -2,9 +2,14 @@ package com.example.dlqsample;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,15 +21,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class SampleController {
 
     private final DlqFailureProducer producer;
+    private final KafkaTemplate<String, String> kafka;
+    private final String businessTopic;
 
-    public SampleController(DlqFailureProducer producer) {
+    public SampleController(DlqFailureProducer producer, KafkaTemplate<String, String> kafka,
+                           @Value("${sim.business-topic}") String businessTopic) {
         this.producer = producer;
+        this.kafka = kafka;
+        this.businessTopic = businessTopic;
     }
 
     @GetMapping("/")
     public Map<String, Object> help() {
         return Map.of(
                 "dlqTopic", producer.topic(),
+                "realisticFlow", "POST /produce  (body = your JSON payload) -> produced to '" + businessTopic
+                        + "'; the sample consumer retries, then routes failures to the DLQ",
                 "send", List.of(
                         "POST /send/transient",
                         "POST /send/infrastructure",
@@ -78,6 +90,29 @@ public class SampleController {
                 "rootCause", template.exceptionClass(),
                 "note", "expect an incident once the count crosses the platform's pattern threshold"
                         + " (default 500 in a 5m window; lower it with RELIABILITY_PATTERN_THRESHOLD)");
+    }
+
+    /**
+     * Realistic flow: produce a business event, let this app's own consumer try (and, by default,
+     * fail) to process it, retry, then route it to the platform DLQ. POST your JSON payload as the body
+     * (optionally {@code ?topic=}). Add {@code "simulateFailure": false} to the payload to make it
+     * process successfully instead.
+     */
+    @PostMapping("/produce")
+    public Map<String, Object> produce(@RequestBody(required = false) String payload,
+                                       @RequestParam(required = false) String topic) {
+        String target = (topic != null && !topic.isBlank()) ? topic : businessTopic;
+        String body = (payload != null && !payload.isBlank()) ? payload : "{\"demo\":true}";
+        String correlationId = UUID.randomUUID().toString();
+        kafka.send(new ProducerRecord<>(target, null, correlationId, body));
+        return Map.of(
+                "producedTo", target,
+                "correlationId", correlationId,
+                "flow", "produce -> sample consumer retries -> routes to DLQ (" + producer.topic()
+                        + ") -> platform ingests",
+                "watch", "http://localhost:8080/api/failures/" + correlationId,
+                "tip", "add \"simulateFailure\": false to the payload (or correct it on replay) to make"
+                        + " processing succeed");
     }
 
     private Map<String, String> one(SampleFailure f) {
