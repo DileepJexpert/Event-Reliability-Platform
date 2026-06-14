@@ -35,6 +35,7 @@ class ApiClient {
   Future<PageResult<FailureSummary>> listFailures({
     String? status,
     String? topic,
+    String? sourceApp,
     String? classification,
     int page = 0,
     int size = 50,
@@ -44,6 +45,7 @@ class ApiClient {
       'size': '$size',
       if (status != null && status.isNotEmpty) 'status': status,
       if (topic != null && topic.isNotEmpty) 'topic': topic,
+      if (sourceApp != null && sourceApp.isNotEmpty) 'sourceApp': sourceApp,
       if (classification != null && classification.isNotEmpty) 'classification': classification,
     };
     final uri = Uri.parse('$_base/api/failures').replace(queryParameters: query);

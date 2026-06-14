@@ -6,7 +6,9 @@ import '../services/api_client.dart';
 import '../widgets/common.dart';
 import 'failure_detail_screen.dart';
 
-/// Failures list (§16): filter by status / topic / classification and search by correlation id.
+/// Failures list (§16). A service owner self-serves "show my failures" by filtering on their source
+/// topic and/or owning app (plus status / classification), or jumps straight to a correlation id.
+/// Rendered as a compact, web-first data table.
 class FailuresScreen extends StatefulWidget {
   const FailuresScreen({super.key});
 
@@ -24,6 +26,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
   String _status = '';
   String _classification = '';
   final _topicCtrl = TextEditingController();
+  final _sourceAppCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
 
   int _page = 0;
@@ -40,6 +43,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
   @override
   void dispose() {
     _topicCtrl.dispose();
+    _sourceAppCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -54,6 +58,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
             status: _status.isEmpty ? null : _status,
             classification: _classification.isEmpty ? null : _classification,
             topic: _topicCtrl.text.trim().isEmpty ? null : _topicCtrl.text.trim(),
+            sourceApp: _sourceAppCtrl.text.trim().isEmpty ? null : _sourceAppCtrl.text.trim(),
             page: _page,
           );
       setState(() => _result = result);
@@ -64,63 +69,68 @@ class _FailuresScreenState extends State<FailuresScreen> {
     }
   }
 
+  void _apply() {
+    _page = 0;
+    _load();
+  }
+
+  void _clear() {
+    setState(() {
+      _status = '';
+      _classification = '';
+      _topicCtrl.clear();
+      _sourceAppCtrl.clear();
+    });
+    _apply();
+  }
+
   void _openDetail(String correlationId) {
-    Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => FailureDetailScreen(correlationId: correlationId)));
+    Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => FailureDetailScreen(correlationId: correlationId)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Failures', style: Theme.of(context).textTheme.headlineSmall),
+          _header(),
           const SizedBox(height: 12),
           _filters(),
           const SizedBox(height: 12),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-          Expanded(child: _table()),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(_error!, style: const TextStyle(color: Colors.red)),
+            ),
+          Expanded(child: _tableCard()),
+          const SizedBox(height: 8),
           _pager(),
         ],
       ),
     );
   }
 
-  Widget _filters() {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      crossAxisAlignment: WrapCrossAlignment.center,
+  Widget _header() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _dropdown('Status', _states, _status, (v) => setState(() => _status = v ?? '')),
-        _dropdown('Classification', _classes, _classification,
-            (v) => setState(() => _classification = v ?? '')),
+        Text('Failures', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(width: 10),
+        if (_result != null)
+          Text('${_result!.totalElements} total', style: Theme.of(context).textTheme.bodySmall),
+        const Spacer(),
         SizedBox(
-          width: 200,
-          child: TextField(
-            controller: _topicCtrl,
-            decoration: const InputDecoration(labelText: 'Original topic', isDense: true),
-          ),
-        ),
-        FilledButton.icon(
-          onPressed: () {
-            _page = 0;
-            _load();
-          },
-          icon: const Icon(Icons.filter_alt),
-          label: const Text('Apply'),
-        ),
-        SizedBox(
-          width: 260,
+          width: 320,
           child: TextField(
             controller: _searchCtrl,
             decoration: InputDecoration(
-              labelText: 'Go to correlation id',
-              isDense: true,
+              hintText: 'Go to correlation id…',
+              prefixIcon: const Icon(Icons.search, size: 18),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.search),
+                icon: const Icon(Icons.arrow_forward, size: 18),
                 onPressed: () {
                   final id = _searchCtrl.text.trim();
                   if (id.isNotEmpty) _openDetail(id);
@@ -136,15 +146,59 @@ class _FailuresScreenState extends State<FailuresScreen> {
     );
   }
 
+  Widget _filters() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _dropdown('Status', _states, _status, (v) => setState(() => _status = v ?? '')),
+            _dropdown('Classification', _classes, _classification,
+                (v) => setState(() => _classification = v ?? '')),
+            _field(_topicCtrl, 'Source topic', 'e.g. payments.transactions', 230),
+            _field(_sourceAppCtrl, 'Source app', 'e.g. payment-service', 200),
+            FilledButton.icon(
+              onPressed: _apply,
+              icon: const Icon(Icons.filter_alt, size: 18),
+              label: const Text('Search'),
+            ),
+            TextButton.icon(
+              onPressed: _clear,
+              icon: const Icon(Icons.clear, size: 18),
+              label: const Text('Clear'),
+            ),
+            if (_loading)
+              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _field(TextEditingController c, String label, String hint, double width) {
+    return SizedBox(
+      width: width,
+      child: TextField(
+        controller: c,
+        decoration: InputDecoration(labelText: label, hintText: hint),
+        onSubmitted: (_) => _apply(),
+      ),
+    );
+  }
+
   Widget _dropdown(String label, List<String> items, String value, ValueChanged<String?> onChanged) {
     return SizedBox(
-      width: 200,
+      width: 190,
       child: InputDecorator(
-        decoration: InputDecoration(labelText: label, isDense: true),
+        decoration: InputDecoration(labelText: label),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: value,
             isExpanded: true,
+            isDense: true,
             items: items
                 .map((s) => DropdownMenuItem(value: s, child: Text(s.isEmpty ? 'Any' : s)))
                 .toList(),
@@ -155,69 +209,96 @@ class _FailuresScreenState extends State<FailuresScreen> {
     );
   }
 
-  Widget _table() {
+  Widget _tableCard() {
     if (_loading && _result == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    final rows = _result?.content ?? const [];
+    final rows = _result?.content ?? const <FailureSummary>[];
     if (rows.isEmpty) {
-      return const Center(child: Text('No failures match the filter.'));
-    }
-    return ListView.separated(
-      itemCount: rows.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
-      itemBuilder: (context, i) {
-        final f = rows[i];
-        return ListTile(
-          dense: true,
-          leading: TagChip(label: f.classification, color: classificationColor(f.classification)),
-          title: Text(f.exceptionClass ?? f.rootCauseSignature ?? '—'),
-          subtitle: Text(
-              '${f.originalTopic ?? '?'} · attempt ${f.attemptCount}'
-              '${f.currentTier != null ? ' · tier ${f.currentTier}' : ''} · ${f.correlationId}'),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TagChip(label: f.state, color: stateColor(f.state)),
-              const SizedBox(width: 8),
-              Text(formatRelative(f.updatedAt), style: Theme.of(context).textTheme.bodySmall),
-            ],
+      return Card(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text('No failures match the filter.',
+                style: Theme.of(context).textTheme.bodyMedium),
           ),
-          onTap: () => _openDetail(f.correlationId),
-        );
-      },
+        ),
+      );
+    }
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Scrollbar(
+        child: SingleChildScrollView(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 120),
+              child: DataTable(
+                showCheckboxColumn: false,
+                columns: const [
+                  DataColumn(label: Text('Class')),
+                  DataColumn(label: Text('State')),
+                  DataColumn(label: Text('Source topic')),
+                  DataColumn(label: Text('Source app')),
+                  DataColumn(label: Text('Exception')),
+                  DataColumn(label: Text('Attempts'), numeric: true),
+                  DataColumn(label: Text('Updated')),
+                ],
+                rows: rows.map(_row).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  DataRow _row(FailureSummary f) {
+    return DataRow(
+      onSelectChanged: (_) => _openDetail(f.correlationId),
+      cells: [
+        DataCell(TagChip(label: f.classification, color: classificationColor(f.classification))),
+        DataCell(TagChip(label: f.state, color: stateColor(f.state))),
+        DataCell(Text(f.originalTopic ?? '—')),
+        DataCell(Text(f.sourceApp ?? '—')),
+        DataCell(ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Text(f.exceptionClass ?? f.rootCauseSignature ?? '—',
+              overflow: TextOverflow.ellipsis),
+        )),
+        DataCell(Text('${f.attemptCount}')),
+        DataCell(Text(formatRelative(f.updatedAt))),
+      ],
     );
   }
 
   Widget _pager() {
     final r = _result;
     if (r == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text('${r.totalElements} total · page ${r.page + 1}/${r.totalPages == 0 ? 1 : r.totalPages}'),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: r.page > 0
-                ? () {
-                    _page = r.page - 1;
-                    _load();
-                  }
-                : null,
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: (r.page + 1) < r.totalPages
-                ? () {
-                    _page = r.page + 1;
-                    _load();
-                  }
-                : null,
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text('Page ${r.page + 1} / ${r.totalPages == 0 ? 1 : r.totalPages}  ·  ${r.totalElements} total',
+            style: Theme.of(context).textTheme.bodySmall),
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: r.page > 0
+              ? () {
+                  _page = r.page - 1;
+                  _load();
+                }
+              : null,
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          onPressed: (r.page + 1) < r.totalPages
+              ? () {
+                  _page = r.page + 1;
+                  _load();
+                }
+              : null,
+        ),
+      ],
     );
   }
 }
