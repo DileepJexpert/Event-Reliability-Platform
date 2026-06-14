@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../services/auth_service.dart';
 
-/// Login screen (§16). In OIDC mode it launches the bank SSO flow. In dev mode it offers two fixed
-/// demo identities — a maker (Operator) and a checker (Approver) — so the maker-checker (4-eyes) flow
-/// can be demoed as two separate logins without an IdP.
+/// Login screen (§16). In OIDC mode it launches the bank SSO flow. In dev mode it offers the fixed
+/// demo identities ([kDemoUsers]) — a maker (Operator) and a checker (Approver) — so the maker-checker
+/// (4-eyes) flow can be demoed as two separate logins without an IdP.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,6 +15,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Per-username presentation (icon + accent) for the dev demo identities.
+  static const Map<String, (IconData, Color)> _style = {
+    'alice': (Icons.engineering, Color(0xFF1F4E79)),
+    'bob': (Icons.verified_user, Color(0xFF0B6E66)),
+  };
+
   bool _busy = false;
   String? _error;
 
@@ -75,25 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: Theme.of(context).textTheme.labelLarge),
                     ),
                     const SizedBox(height: 12),
-                    _devUser(
-                      username: 'alice',
-                      title: 'Alice · Maker',
-                      subtitle: 'Operator — raises replay / quarantine requests',
-                      roles: const ['VIEWER', 'OPERATOR'],
-                      icon: Icons.engineering,
-                      color: const Color(0xFF1F4E79),
-                    ),
-                    const SizedBox(height: 10),
-                    _devUser(
-                      username: 'bob',
-                      title: 'Bob · Checker',
-                      subtitle: 'Approver — approves / rejects requests (4-eyes)',
-                      roles: const ['VIEWER', 'APPROVER'],
-                      icon: Icons.verified_user,
-                      color: const Color(0xFF0B6E66),
-                    ),
+                    for (final u in kDemoUsers) ...[
+                      _devUser(u),
+                      const SizedBox(height: 10),
+                    ],
                   ],
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 8),
                   Text('Mode: ${AppConfig.authMode} · ${AppConfig.apiBaseUrl}',
                       style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
                 ],
@@ -105,16 +98,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _devUser({
-    required String username,
-    required String title,
-    required String subtitle,
-    required List<String> roles,
-    required IconData icon,
-    required Color color,
-  }) {
+  Widget _devUser(DemoUser u) {
+    final (icon, color) = _style[u.username] ?? (Icons.person, const Color(0xFF1F4E79));
     return OutlinedButton(
-      onPressed: () => context.read<AuthService>().loginAsDev(username, roles),
+      onPressed: () => context.read<AuthService>().loginAsDev(u.username, u.roles),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.all(14),
         alignment: Alignment.centerLeft,
@@ -132,9 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                Text('${u.label} · ${u.role}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
+                Text(u.description, style: const TextStyle(fontSize: 11.5, color: Colors.black54)),
               ],
             ),
           ),
