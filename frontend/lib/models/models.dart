@@ -213,6 +213,73 @@ class Incident {
       );
 }
 
+/// A maker-checker approval request (§13) as shown to the checker — includes the original and the
+/// maker's corrected payload so the console can show a diff.
+class Approval {
+  final String requestId;
+  final String type;
+  final String? correlationId;
+  final String? incidentId;
+  final String? maker;
+  final String? makerReason;
+  final String? targetTopic;
+  final bool payloadEdited;
+  final String? payloadOverrideBase64;
+  final String? originalPayloadBase64;
+  final String? exceptionClass;
+  final String? originalTopic;
+  final String status;
+  final int createdAt;
+  final String? checker;
+  final String? checkerReason;
+  final int? decidedAt;
+  final int revision;
+
+  Approval({
+    required this.requestId,
+    required this.type,
+    this.correlationId,
+    this.incidentId,
+    this.maker,
+    this.makerReason,
+    this.targetTopic,
+    this.payloadEdited = false,
+    this.payloadOverrideBase64,
+    this.originalPayloadBase64,
+    this.exceptionClass,
+    this.originalTopic,
+    this.status = 'PENDING',
+    this.createdAt = 0,
+    this.checker,
+    this.checkerReason,
+    this.decidedAt,
+    this.revision = 0,
+  });
+
+  String get target => correlationId ?? incidentId ?? requestId;
+
+  factory Approval.fromJson(Map<String, dynamic> j) => Approval(
+        requestId: j['requestId'] as String,
+        type: (j['type'] ?? '') as String,
+        correlationId: j['correlationId'] as String?,
+        incidentId: j['incidentId'] as String?,
+        maker: j['maker'] as String?,
+        makerReason: j['makerReason'] as String?,
+        targetTopic: j['targetTopic'] as String?,
+        payloadEdited: (j['payloadEdited'] ?? false) as bool,
+        payloadOverrideBase64: j['payloadOverrideBase64'] as String?,
+        originalPayloadBase64: j['originalPayloadBase64'] as String?,
+        exceptionClass: j['exceptionClass'] as String?,
+        originalTopic: j['originalTopic'] as String?,
+        status: (j['status'] ?? 'PENDING') as String,
+        createdAt: (j['createdAt'] ?? 0) as int,
+        checker: j['checker'] as String?,
+        checkerReason: j['checkerReason'] as String?,
+        decidedAt: j['decidedAt'] as int?,
+        revision: (j['revision'] ?? 0) as int,
+      );
+}
+
 class PageResult<T> {
   final List<T> content;
   final int page;

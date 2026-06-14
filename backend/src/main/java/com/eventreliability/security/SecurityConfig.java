@@ -82,9 +82,15 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
+                        // Maker-checker approvals: any role may read the queue; the maker corrects via
+                        // resubmit (OPERATOR); approve/reject/return are the checker's (APPROVER).
+                        .requestMatchers(HttpMethod.GET, "/api/approvals/**")
+                                .hasAnyRole(Roles.VIEWER, Roles.OPERATOR, Roles.APPROVER)
+                        .requestMatchers(HttpMethod.POST, "/api/approvals/*/resubmit").hasRole(Roles.OPERATOR)
+                        .requestMatchers(HttpMethod.POST, "/api/approvals/**").hasRole(Roles.APPROVER)
                         // Reads: either role.
                         .requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole(Roles.VIEWER, Roles.OPERATOR)
-                        // Mutations (replay / bulk-replay / quarantine): operators only.
+                        // Maker mutations (replay / bulk-replay / quarantine requests): operators only.
                         .requestMatchers("/api/**").hasRole(Roles.OPERATOR)
                         .requestMatchers("/actuator/**").hasRole(Roles.OPERATOR)
                         .anyRequest().authenticated())

@@ -17,4 +17,7 @@ public final class StoreNames {
 
     /** GlobalKTable over {@code reliability.views.incidents} — active systemic incidents. */
     public static final String INCIDENTS = "incidents-store";
+
+    /** GlobalKTable over {@code reliability.control.requests} — maker-checker approval requests. */
+    public static final String CONTROL_REQUESTS = "control-requests-store";
 }

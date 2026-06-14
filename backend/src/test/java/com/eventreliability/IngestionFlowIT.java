@@ -102,6 +102,31 @@ class IngestionFlowIT {
         });
     }
 
+    @Test
+    void correlationIdIsReadFromTheConfiguredCompanyHeaderNotXCorrelationId() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+
+        String companyId = "company-" + UUID.randomUUID();
+        RecordHeaders headers = new RecordHeaders();
+        // The company contract: id under `correlationId`, with NO platform-native x-correlation-id header.
+        headers.add("correlationId", companyId.getBytes(StandardCharsets.UTF_8));
+        headers.add(FailureHeaders.ORIGINAL_TOPIC, "payments.events".getBytes(StandardCharsets.UTF_8));
+        headers.add(FailureHeaders.EXCEPTION_CLASS,
+                "java.net.SocketTimeoutException".getBytes(StandardCharsets.UTF_8));
+        // Record key deliberately different from the correlation id — the header must take precedence.
+        kafkaTemplate.send(new ProducerRecord<>(topics.inbound(), null, "kafka-key-not-the-id",
+                "{\"amount\":1}".getBytes(StandardCharsets.UTF_8), headers));
+
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            FailureRecord record = readModels.failure(companyId).orElse(null);
+            assertThat(record).isNotNull();
+            assertThat(record.classification()).isEqualTo(FailureClassification.TRANSIENT);
+            assertThat(record.state()).isEqualTo(MessageState.RETRY_SCHEDULED);
+        });
+        // The message must NOT have been ingested under the Kafka record key.
+        assertThat(readModels.failure("kafka-key-not-the-id")).isEmpty();
+    }
+
     private String send(String exceptionClass, String originalTopic, int attempt) {
         String correlationId = "corr-" + UUID.randomUUID();
         RecordHeaders headers = new RecordHeaders();

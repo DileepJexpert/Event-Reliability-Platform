@@ -5,6 +5,7 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/event_stream.dart';
 import '../state/dashboard_state.dart';
+import 'approvals_screen.dart';
 import 'audit_search_screen.dart';
 import 'dashboard_screen.dart';
 import 'failures_screen.dart';
@@ -29,6 +30,7 @@ class _HomeShellState extends State<HomeShell> {
     DashboardScreen(),
     FailuresScreen(),
     IncidentsScreen(),
+    ApprovalsScreen(),
     AuditSearchScreen(),
   ];
 
@@ -46,6 +48,35 @@ class _HomeShellState extends State<HomeShell> {
   void dispose() {
     _dashboard.dispose();
     super.dispose();
+  }
+
+  Future<void> _editActor(AuthService auth) async {
+    final ctrl = TextEditingController(text: auth.actingAs);
+    final who = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Acting as'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Used for audit + the X-Actor header. Set a different user to play the checker '
+                'in the maker-checker flow.'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'User'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Set')),
+        ],
+      ),
+    );
+    if (who != null) auth.setActingAs(who);
   }
 
   @override
@@ -66,6 +97,13 @@ class _HomeShellState extends State<HomeShell> {
                   const Icon(Icons.shield_moon, color: Colors.indigo),
                   const SizedBox(height: 4),
                   Text(auth.state.username, style: const TextStyle(fontSize: 11)),
+                  // Acting-as switcher: lets one browser play maker then checker (4-eyes).
+                  TextButton.icon(
+                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6)),
+                    icon: const Icon(Icons.switch_account, size: 14),
+                    label: Text('as ${auth.actingAs}', style: const TextStyle(fontSize: 10)),
+                    onPressed: () => _editActor(context.read<AuthService>()),
+                  ),
                   IconButton(
                     tooltip: 'Sign out',
                     icon: const Icon(Icons.logout, size: 18),
@@ -77,6 +115,7 @@ class _HomeShellState extends State<HomeShell> {
                 NavigationRailDestination(icon: Icon(Icons.dashboard), label: Text('Dashboard')),
                 NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Failures')),
                 NavigationRailDestination(icon: Icon(Icons.warning_amber), label: Text('Incidents')),
+                NavigationRailDestination(icon: Icon(Icons.approval), label: Text('Approvals')),
                 NavigationRailDestination(icon: Icon(Icons.history), label: Text('Audit')),
               ],
             ),

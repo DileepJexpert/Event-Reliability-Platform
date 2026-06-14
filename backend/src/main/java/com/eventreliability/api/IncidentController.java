@@ -4,8 +4,8 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.eventreliability.api.dto.ActionAccepted;
-import com.eventreliability.api.dto.ActionRequest;
-import com.eventreliability.control.ControlCommandService;
+import com.eventreliability.api.dto.ReplayRequest;
+import com.eventreliability.control.ApprovalService;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.query.NotFoundException;
 import com.eventreliability.security.CurrentUser;
@@ -21,19 +21,20 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Incident endpoints (§15). Reads list/detail active incidents; the OPERATOR-only bulk-replay action
- * (§13) drives one-click recovery of a whole cohort once the upstream is fixed and is fully audited.
+ * Incident endpoints (§15). Reads list/detail active incidents; the bulk-replay action (§13) is a
+ * <em>maker</em> request — in maker-checker mode a different checker must approve it before the whole
+ * cohort is re-driven — and is fully audited.
  */
 @RestController
 @RequestMapping("/api/incidents")
 public class IncidentController {
 
     private final ReadModels readModels;
-    private final ControlCommandService controlCommandService;
+    private final ApprovalService approvalService;
 
-    public IncidentController(ReadModels readModels, ControlCommandService controlCommandService) {
+    public IncidentController(ReadModels readModels, ApprovalService approvalService) {
         this.readModels = readModels;
-        this.controlCommandService = controlCommandService;
+        this.approvalService = approvalService;
     }
 
     @GetMapping
@@ -49,13 +50,15 @@ public class IncidentController {
                 .orElseThrow(() -> new NotFoundException("No incident found for id " + id));
     }
 
-    /** {@code POST /api/incidents/{id}/bulk-replay} — one-click bulk recovery (operator, audited). */
+    /** {@code POST /api/incidents/{id}/bulk-replay} — maker requests one-click cohort recovery (§13). */
     @PostMapping("/{id}/bulk-replay")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ActionAccepted bulkReplay(@PathVariable String id,
-                                     @RequestBody(required = false) ActionRequest request) {
+                                     @RequestBody(required = false) ReplayRequest request) {
         String actor = CurrentUser.name();
-        controlCommandService.requestBulkReplay(id, actor, request == null ? null : request.reason());
-        return ActionAccepted.of("bulk-replay", id, actor);
+        String requestId = approvalService.requestBulkReplay(id, actor,
+                request == null ? null : request.reason(),
+                request == null ? null : request.targetTopic());
+        return ActionAccepted.of("bulk-replay", id, actor, requestId);
     }
 }

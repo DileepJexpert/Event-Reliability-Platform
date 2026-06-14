@@ -1,6 +1,7 @@
 package com.eventreliability.classification;
 
 import com.eventreliability.audit.AuditService;
+import com.eventreliability.config.CorrelationIdResolver;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
@@ -32,16 +33,18 @@ public class ClassificationListener {
     private static final Logger log = LoggerFactory.getLogger(ClassificationListener.class);
 
     private final FailureRecordFactory recordFactory;
+    private final CorrelationIdResolver correlationIds;
     private final Classifier classifier;
     private final StateService stateService;
     private final AuditService auditService;
     private final RoutingService routingService;
     private final PlatformMetrics metrics;
 
-    public ClassificationListener(FailureRecordFactory recordFactory, Classifier classifier,
-                                  StateService stateService, AuditService auditService,
+    public ClassificationListener(FailureRecordFactory recordFactory, CorrelationIdResolver correlationIds,
+                                  Classifier classifier, StateService stateService, AuditService auditService,
                                   RoutingService routingService, PlatformMetrics metrics) {
         this.recordFactory = recordFactory;
+        this.correlationIds = correlationIds;
         this.classifier = classifier;
         this.stateService = stateService;
         this.auditService = auditService;
@@ -52,9 +55,11 @@ public class ClassificationListener {
     @KafkaListener(topics = "#{@topicNames.classify()}", id = "classification")
     public void onClassify(ConsumerRecord<String, byte[]> record) {
         Headers h = record.headers();
+        log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
+                record.partition(), record.offset());
         String correlationId = record.key() != null
                 ? record.key()
-                : FailureHeaders.getString(h, FailureHeaders.CORRELATION_ID);
+                : correlationIds.fromHeaders(h);
         if (correlationId == null || correlationId.isBlank()) {
             log.warn("Dropping classification message with no correlation id");
             return;
@@ -85,6 +90,7 @@ public class ClassificationListener {
         metrics.classified(result.classification());
         routingService.route(classified, record.value(), h);
 
-        log.debug("Classified {} as {} ({})", correlationId, result.classification(), result.matchedRule());
+        log.info("Classified {} as {} -> action {} (rule '{}')",
+                correlationId, result.classification(), result.action(), result.matchedRule());
     }
 }

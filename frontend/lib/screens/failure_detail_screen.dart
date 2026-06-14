@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -57,6 +59,91 @@ class _FailureDetailScreenState extends State<FailureDetailScreen> {
     }
   }
 
+  /// Maker action: raise a replay request, optionally redirecting the topic and/or correcting the
+  /// payload. In maker-checker mode a different checker must approve it before it executes (§13).
+  Future<void> _requestReplay() async {
+    final d = _detail!;
+    final originalText = _decode(d.payloadBase64);
+    final reasonCtrl = TextEditingController();
+    final topicCtrl = TextEditingController();
+    final payloadCtrl = TextEditingController(text: originalText);
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Request replay — ${widget.correlationId}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: reasonCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Reason (audited)'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: topicCtrl,
+                  decoration: InputDecoration(
+                      labelText: 'Target topic (optional)',
+                      hintText: d.originalTopic ?? 'original topic'),
+                ),
+                const SizedBox(height: 12),
+                const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Payload — edit to correct before replay:',
+                        style: TextStyle(color: Colors.black54))),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: payloadCtrl,
+                  maxLines: 8,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Submit request')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final reason = reasonCtrl.text.trim();
+    final topic = topicCtrl.text.trim();
+    final newPayload = payloadCtrl.text;
+    final payloadB64 = newPayload == originalText ? null : base64.encode(utf8.encode(newPayload));
+
+    try {
+      await context.read<ApiClient>().replay(widget.correlationId,
+          reason: reason.isEmpty ? null : reason,
+          targetTopic: topic.isEmpty ? null : topic,
+          payloadBase64: payloadB64);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Replay requested — awaiting approval')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Replay request failed: $e')));
+    }
+  }
+
+  String _decode(String? b64) {
+    if (b64 == null || b64.isEmpty) return '';
+    try {
+      return utf8.decode(base64.decode(b64));
+    } catch (_) {
+      return '';
+    }
+  }
+
   Future<String?> _askReason(String verb) {
     final ctrl = TextEditingController();
     return showDialog<String>(
@@ -88,9 +175,8 @@ class _FailureDetailScreenState extends State<FailureDetailScreen> {
           if (isOperator && _detail != null) ...[
             TextButton.icon(
               icon: const Icon(Icons.replay),
-              label: const Text('Replay'),
-              onPressed: () => _runAction(
-                  'Replay', (reason) => api.replay(widget.correlationId, reason: reason)),
+              label: const Text('Request replay'),
+              onPressed: _requestReplay,
             ),
             TextButton.icon(
               icon: const Icon(Icons.block),

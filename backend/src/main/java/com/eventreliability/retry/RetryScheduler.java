@@ -94,8 +94,9 @@ public class RetryScheduler {
                 "RETRY_SCHEDULED",
                 "tier " + tier.name() + " (attempt " + attempt + "/" + tiers.size()
                         + "), eligible at " + Instant.ofEpochMilli(eligibleAt));
-        log.debug("Scheduled retry for {} on tier {} eligible at {}",
-                record.correlationId(), tier.name(), eligibleAt);
+        log.info("Scheduled retry for {} on tier {} -> topic {} eligible at {}",
+                record.correlationId(), tier.name(), topics.retry(tier.name()),
+                Instant.ofEpochMilli(eligibleAt));
     }
 
     public List<Tier> tiers() {

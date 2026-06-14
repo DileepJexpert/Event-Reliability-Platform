@@ -41,6 +41,8 @@ public class IncidentNotifier {
 
     @KafkaListener(topics = "#{@topicNames.incidents()}", id = "incident-notifier")
     public void onIncident(ConsumerRecord<String, byte[]> record) {
+        log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
+                record.partition(), record.offset());
         Incident incident = json.fromBytes(record.value(), Incident.class);
         if (incident == null) {
             return;

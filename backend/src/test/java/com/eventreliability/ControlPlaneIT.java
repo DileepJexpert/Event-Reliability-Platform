@@ -2,13 +2,17 @@ package com.eventreliability;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.UUID;
 
 import com.eventreliability.api.dto.ActionAccepted;
 import com.eventreliability.api.dto.ActionRequest;
+import com.eventreliability.api.dto.ApprovalDto;
 import com.eventreliability.api.dto.FailureDetailDto;
+import com.eventreliability.api.dto.ReplayRequest;
 import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.AuditEvent;
+import com.eventreliability.domain.ControlRequest;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.domain.MessageState;
@@ -20,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -30,9 +37,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Drives the control plane over real HTTP: a single replay and an incident bulk-replay, asserting the
- * command flows through the control topic, executes, advances state and writes audited actions with
- * the acting user.
+ * Drives the maker-checker control plane over real HTTP: a maker raises a replay / bulk-replay
+ * request, 4-eyes blocks self-approval, then a different checker approves and the command flows
+ * through the control topic, executes, advances state and writes audited actions with both users.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @EmbeddedKafka(partitions = 1, topics = {})
@@ -43,6 +50,7 @@ import static org.awaitility.Awaitility.await;
         "reliability.pattern.threshold=3",
         "reliability.pattern.window=120s",
         "reliability.pattern.grace=2s",
+        "reliability.replay.allowed-topics=payments.retry",
         "spring.kafka.streams.state-dir=${java.io.tmpdir}/erp-streams-control-${random.uuid}"
 })
 class ControlPlaneIT {
@@ -57,7 +65,7 @@ class ControlPlaneIT {
     private TestRestTemplate rest;
 
     @Test
-    void singleReplayOverHttpRedrivesAndAudits() {
+    void makerCheckerSingleReplayOverHttpRedrivesAndAudits() {
         await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
         String id = send("com.bank.MysteryException", "payments.events");
 
@@ -65,35 +73,53 @@ class ControlPlaneIT {
                 assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
                         .isEqualTo(MessageState.PARKED_UNKNOWN));
 
-        ResponseEntity<ActionAccepted> resp = rest.postForEntity(
-                "/api/failures/" + id + "/replay", new ActionRequest("operator fixed upstream"),
-                ActionAccepted.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
-        assertThat(resp.getBody()).isNotNull();
-        assertThat(resp.getBody().action()).isEqualTo("replay");
+        // Maker raises a replay request.
+        ResponseEntity<ActionAccepted> requested = post("/api/failures/" + id + "/replay", "alice",
+                new ReplayRequest("upstream fixed", null, null), ActionAccepted.class);
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        String requestId = requested.getBody().requestId();
+        assertThat(requestId).isNotNull();
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
+                        .isEqualTo(MessageState.REPLAY_REQUESTED));
+
+        // Request shows up PENDING in the approvals view.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.controlRequest(requestId).map(ControlRequest::status).orElse(null))
+                        .isEqualTo(ControlRequest.Status.PENDING));
+
+        // 4-eyes: the maker cannot approve their own request.
+        ResponseEntity<String> selfApprove = post("/api/approvals/" + requestId + "/approve", "alice",
+                new ActionRequest("approving my own"), String.class);
+        assertThat(selfApprove.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+
+        // A different checker approves → it executes.
+        ResponseEntity<ActionAccepted> approved = post("/api/approvals/" + requestId + "/approve", "bob",
+                new ActionRequest("verified, go"), ActionAccepted.class);
+        assertThat(approved.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
                 assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
                         .isEqualTo(MessageState.REPLAYED));
 
-        // The audit timeline (served over HTTP, via the aggregated views.audit GlobalKTable) records
-        // both the operator request and the execution — poll until that view catches up.
+        // The audit timeline records the maker request, the checker approval and the execution.
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             FailureDetailDto detail = rest.getForObject("/api/failures/" + id, FailureDetailDto.class);
             assertThat(detail.auditTimeline()).extracting(AuditEvent::action)
-                    .contains("REPLAY_REQUESTED", "REPLAYED");
+                    .contains("REPLAY_REQUESTED", "REPLAY_APPROVED", "REPLAYED");
+            assertThat(detail.auditTimeline()).extracting(AuditEvent::actor).contains("alice", "bob");
         });
     }
 
     @Test
-    void bulkReplayOverHttpRecoversCohortAndResolvesIncident() {
+    void makerCheckerBulkReplayOverHttpRecoversCohortAndResolvesIncident() {
         await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
 
         for (int i = 0; i < 4; i++) {
             send("com.bank.orders.SchemaDriftException", "orders.events");
         }
 
-        // Wait for the incident to be raised.
         String[] incidentId = new String[1];
         await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
             Incident inc = readModels.allIncidents().stream()
@@ -104,12 +130,21 @@ class ControlPlaneIT {
             incidentId[0] = inc.id();
         });
 
-        ResponseEntity<ActionAccepted> resp = rest.postForEntity(
-                "/api/incidents/" + incidentId[0] + "/bulk-replay",
-                new ActionRequest("upstream schema rolled back"), ActionAccepted.class);
-        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        // Maker raises the bulk-replay request; a checker approves it.
+        ResponseEntity<ActionAccepted> requested = post("/api/incidents/" + incidentId[0] + "/bulk-replay",
+                "alice", new ReplayRequest("upstream schema rolled back", null, null), ActionAccepted.class);
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        String requestId = requested.getBody().requestId();
+        assertThat(requestId).isNotNull();
 
-        // Incident resolves and the cohort is moved to REPLAYED.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.controlRequest(requestId).map(ControlRequest::status).orElse(null))
+                        .isEqualTo(ControlRequest.Status.PENDING));
+
+        ResponseEntity<ActionAccepted> approved = post("/api/approvals/" + requestId + "/approve", "bob",
+                new ActionRequest("approved"), ActionAccepted.class);
+        assertThat(approved.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             Incident inc = readModels.incident(incidentId[0]).orElse(null);
             assertThat(inc).isNotNull();
@@ -120,6 +155,135 @@ class ControlPlaneIT {
                     .count();
             assertThat(replayed).isGreaterThanOrEqualTo(3);
         });
+    }
+
+    @Test
+    void replayCanCorrectPayloadAndRedirectToAnAllowedTopic() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("com.bank.MysteryException", "payments.events");
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
+                        .isEqualTo(MessageState.PARKED_UNKNOWN));
+
+        // A target topic that is not allow-listed is rejected up front (400).
+        ResponseEntity<String> denied = post("/api/failures/" + id + "/replay", "alice",
+                new ReplayRequest("redirect", "not.allowed.topic", null), String.class);
+        assertThat(denied.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        // Maker corrects the payload and redirects to an allow-listed topic.
+        String corrected = Base64.getEncoder()
+                .encodeToString("{\"v\":2,\"fixed\":true}".getBytes(StandardCharsets.UTF_8));
+        ResponseEntity<ActionAccepted> requested = post("/api/failures/" + id + "/replay", "alice",
+                new ReplayRequest("corrected & redirected", "payments.retry", corrected), ActionAccepted.class);
+        assertThat(requested.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        String requestId = requested.getBody().requestId();
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.controlRequest(requestId).map(ControlRequest::status).orElse(null))
+                        .isEqualTo(ControlRequest.Status.PENDING));
+
+        // The checker sees the correction + redirect before approving.
+        ApprovalDto dto = rest.getForObject("/api/approvals/" + requestId, ApprovalDto.class);
+        assertThat(dto.targetTopic()).isEqualTo("payments.retry");
+        assertThat(dto.payloadEdited()).isTrue();
+        assertThat(dto.payloadOverrideBase64()).isEqualTo(corrected);
+
+        ResponseEntity<ActionAccepted> approved = post("/api/approvals/" + requestId + "/approve", "bob",
+                new ActionRequest("ok"), ActionAccepted.class);
+        assertThat(approved.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
+                        .isEqualTo(MessageState.REPLAYED));
+
+        // The execution audit records the redirect + the correction.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            FailureDetailDto detail = rest.getForObject("/api/failures/" + id, FailureDetailDto.class);
+            assertThat(detail.auditTimeline())
+                    .anyMatch(e -> "REPLAYED".equals(e.action()) && e.detail() != null
+                            && e.detail().contains("payments.retry") && e.detail().contains("payload corrected"));
+        });
+    }
+
+    @Test
+    void checkerCanReturnToMakerWhoCorrectsAndResubmits() {
+        await().atMost(Duration.ofSeconds(60)).until(readModels::ready);
+        String id = send("com.bank.MysteryException", "payments.events");
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
+                        .isEqualTo(MessageState.PARKED_UNKNOWN));
+
+        // Maker alice raises the request.
+        ResponseEntity<ActionAccepted> requested = post("/api/failures/" + id + "/replay", "alice",
+                new ReplayRequest("please replay", null, null), ActionAccepted.class);
+        String requestId = requested.getBody().requestId();
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.controlRequest(requestId).map(ControlRequest::status).orElse(null))
+                        .isEqualTo(ControlRequest.Status.PENDING));
+
+        // Checker bob returns it to the maker with a note + a suggested correction.
+        String suggested = Base64.getEncoder()
+                .encodeToString("{\"v\":1,\"hint\":\"add field\"}".getBytes(StandardCharsets.UTF_8));
+        ResponseEntity<ActionAccepted> returned = post("/api/approvals/" + requestId + "/return", "bob",
+                new ReplayRequest("please add the missing field", null, suggested), ActionAccepted.class);
+        assertThat(returned.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.controlRequest(requestId).map(ControlRequest::status).orElse(null))
+                        .isEqualTo(ControlRequest.Status.RETURNED));
+
+        // It now appears in the maker's RETURNED queue with the checker's note + suggestion.
+        ApprovalDto[] returnedQueue = rest.getForObject("/api/approvals?status=RETURNED", ApprovalDto[].class);
+        assertThat(returnedQueue).anyMatch(a ->
+                a.requestId().equals(requestId) && "bob".equals(a.checker()) && a.payloadEdited());
+
+        // A returned request cannot be approved until it is resubmitted (409).
+        ResponseEntity<String> earlyApprove = post("/api/approvals/" + requestId + "/approve", "carol",
+                new ActionRequest("too soon"), String.class);
+        assertThat(earlyApprove.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        // Any maker (here alice) corrects and resubmits → back to PENDING, revision bumped.
+        String corrected = Base64.getEncoder()
+                .encodeToString("{\"v\":2,\"fixed\":true}".getBytes(StandardCharsets.UTF_8));
+        ResponseEntity<ActionAccepted> resub = post("/api/approvals/" + requestId + "/resubmit", "alice",
+                new ReplayRequest("corrected", null, corrected), ActionAccepted.class);
+        assertThat(resub.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            ControlRequest r = readModels.controlRequest(requestId).orElse(null);
+            assertThat(r).isNotNull();
+            assertThat(r.status()).isEqualTo(ControlRequest.Status.PENDING);
+            assertThat(r.revision()).isEqualTo(1);
+            assertThat(r.payloadOverrideBase64()).isEqualTo(corrected);
+        });
+
+        // Checker bob now approves → it executes with the corrected payload.
+        ResponseEntity<ActionAccepted> approved = post("/api/approvals/" + requestId + "/approve", "bob",
+                new ActionRequest("looks good"), ActionAccepted.class);
+        assertThat(approved.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(readModels.failure(id).map(r -> r.state()).orElse(null))
+                        .isEqualTo(MessageState.REPLAYED));
+
+        // The audit trail records the full round-trip.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            FailureDetailDto detail = rest.getForObject("/api/failures/" + id, FailureDetailDto.class);
+            assertThat(detail.auditTimeline()).extracting(AuditEvent::action).contains(
+                    "REPLAY_REQUESTED", "REPLAY_RETURNED", "REPLAY_RESUBMITTED", "REPLAY_APPROVED", "REPLAYED");
+        });
+
+        // The per-request history endpoint returns just this request's maker-checker round-trip.
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            AuditEvent[] history =
+                    rest.getForObject("/api/approvals/" + requestId + "/history", AuditEvent[].class);
+            assertThat(history).extracting(AuditEvent::action).contains(
+                    "REPLAY_REQUESTED", "REPLAY_RETURNED", "REPLAY_RESUBMITTED", "REPLAY_APPROVED");
+            assertThat(history).allMatch(e -> id.equals(e.correlationId()));
+        });
+    }
+
+    private <T> ResponseEntity<T> post(String url, String actor, Object body, Class<T> type) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(com.eventreliability.security.CurrentUser.ACTOR_HEADER, actor);
+        return rest.exchange(url, HttpMethod.POST, new HttpEntity<>(body, headers), type);
     }
 
     private String send(String exceptionClass, String originalTopic) {

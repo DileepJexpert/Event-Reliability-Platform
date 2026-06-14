@@ -3,9 +3,9 @@ package com.eventreliability.streams;
 import java.time.Duration;
 
 import com.eventreliability.common.JsonSerde;
+import com.eventreliability.config.CorrelationIdResolver;
 import com.eventreliability.config.ReliabilityProperties;
 import com.eventreliability.config.TopicNames;
-import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.domain.IncidentAccumulator;
 import com.eventreliability.domain.RootCauseSignature;
@@ -52,7 +52,8 @@ public class PatternDetectionTopology {
 
     @Bean
     public KStream<String, Incident> patternDetection(
-            StreamsBuilder builder, ObjectMapper mapper, TopicNames topics, ReliabilityProperties props) {
+            StreamsBuilder builder, ObjectMapper mapper, TopicNames topics, ReliabilityProperties props,
+            CorrelationIdResolver correlationIds) {
 
         Serde<String> str = Serdes.String();
         Serde<IncidentAccumulator> accSerde = new JsonSerde<>(mapper, IncidentAccumulator.class);
@@ -64,7 +65,7 @@ public class PatternDetectionTopology {
 
         KStream<String, String> hits = builder
                 .stream(topics.inbound(), Consumed.with(str, Serdes.ByteArray()))
-                .process(SignatureProcessor::new);
+                .process(() -> new SignatureProcessor(correlationIds));
 
         KStream<String, Incident> incidents = hits
                 .groupByKey(Grouped.with(str, str))
@@ -100,7 +101,12 @@ public class PatternDetectionTopology {
      */
     static final class SignatureProcessor implements Processor<String, byte[], String, String> {
 
+        private final CorrelationIdResolver correlationIds;
         private ProcessorContext<String, String> context;
+
+        SignatureProcessor(CorrelationIdResolver correlationIds) {
+            this.correlationIds = correlationIds;
+        }
 
         @Override
         public void init(ProcessorContext<String, String> context) {
@@ -110,7 +116,7 @@ public class PatternDetectionTopology {
         @Override
         public void process(Record<String, byte[]> record) {
             Headers headers = record.headers();
-            String correlationId = FailureHeaders.getString(headers, FailureHeaders.CORRELATION_ID);
+            String correlationId = correlationIds.fromHeaders(headers);
             if (correlationId == null && record.key() != null) {
                 correlationId = record.key();
             }

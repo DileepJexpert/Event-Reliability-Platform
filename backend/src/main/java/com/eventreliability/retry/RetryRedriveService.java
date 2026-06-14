@@ -2,6 +2,7 @@ package com.eventreliability.retry;
 
 import com.eventreliability.audit.AuditService;
 import com.eventreliability.common.KafkaPublisher;
+import com.eventreliability.config.CorrelationIdResolver;
 import com.eventreliability.config.ReliabilityProperties;
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
@@ -36,6 +37,7 @@ public class RetryRedriveService {
     private static final Logger log = LoggerFactory.getLogger(RetryRedriveService.class);
 
     private final ReliabilityProperties props;
+    private final CorrelationIdResolver correlationIds;
     private final KafkaPublisher publisher;
     private final StateService stateService;
     private final AuditService auditService;
@@ -43,11 +45,12 @@ public class RetryRedriveService {
     private final ParkingService parkingService;
     private final PlatformMetrics metrics;
 
-    public RetryRedriveService(ReliabilityProperties props, KafkaPublisher publisher,
-                               StateService stateService, AuditService auditService,
+    public RetryRedriveService(ReliabilityProperties props, CorrelationIdResolver correlationIds,
+                               KafkaPublisher publisher, StateService stateService, AuditService auditService,
                                FailureRecordFactory recordFactory, ParkingService parkingService,
                                PlatformMetrics metrics) {
         this.props = props;
+        this.correlationIds = correlationIds;
         this.publisher = publisher;
         this.stateService = stateService;
         this.auditService = auditService;
@@ -60,7 +63,7 @@ public class RetryRedriveService {
         Headers h = record.headers();
         String correlationId = record.key() != null
                 ? record.key()
-                : FailureHeaders.getString(h, FailureHeaders.CORRELATION_ID);
+                : correlationIds.fromHeaders(h);
         if (correlationId == null || correlationId.isBlank()) {
             log.warn("Dropping retry message with no correlation id on topic {}", record.topic());
             return;
@@ -103,7 +106,7 @@ public class RetryRedriveService {
                 existing != null ? existing.state() : MessageState.RETRY_SCHEDULED, MessageState.RETRYING,
                 "REDRIVEN", "re-driven to " + destination + " as attempt " + nextAttempt
                         + (tier != null ? " (tier " + tier + ")" : ""));
-        log.debug("Re-drove {} to {} as attempt {}", correlationId, destination, nextAttempt);
+        log.info("Re-drove {} -> topic {} as attempt {}", correlationId, destination, nextAttempt);
     }
 
     private String destination(Headers h) {

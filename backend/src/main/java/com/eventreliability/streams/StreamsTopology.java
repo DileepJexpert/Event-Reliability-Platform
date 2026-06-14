@@ -4,6 +4,7 @@ import com.eventreliability.common.JsonSerde;
 import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.AuditEvent;
 import com.eventreliability.domain.AuditTimeline;
+import com.eventreliability.domain.ControlRequest;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,6 +83,21 @@ public class StreamsTopology {
         return builder.globalTable(topics.viewsIncidents(),
                 Consumed.with(keySerde, valueSerde),
                 Materialized.<String, Incident, KeyValueStore<Bytes, byte[]>>as(StoreNames.INCIDENTS)
+                        .withKeySerde(keySerde).withValueSerde(valueSerde));
+    }
+
+    /**
+     * Loads the compacted {@code reliability.control.requests} topic as a GlobalKTable so the console
+     * can show the maker-checker pending-approvals queue and request history with full-local reads (§13).
+     */
+    @Bean
+    public GlobalKTable<String, ControlRequest> controlRequestsGlobalTable(
+            StreamsBuilder builder, ObjectMapper mapper, TopicNames topics) {
+        Serde<String> keySerde = Serdes.String();
+        Serde<ControlRequest> valueSerde = new JsonSerde<>(mapper, ControlRequest.class);
+        return builder.globalTable(topics.controlRequests(),
+                Consumed.with(keySerde, valueSerde),
+                Materialized.<String, ControlRequest, KeyValueStore<Bytes, byte[]>>as(StoreNames.CONTROL_REQUESTS)
                         .withKeySerde(keySerde).withValueSerde(valueSerde));
     }
 }

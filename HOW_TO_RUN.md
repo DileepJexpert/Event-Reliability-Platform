@@ -172,6 +172,65 @@ Every transition is recorded in the immutable audit log — see it at `GET /api/
 
 ---
 
+## Logs — following the flow (for debugging)
+
+The backend logs the whole message journey at INFO with grep-friendly tags:
+
+| Tag | Meaning |
+| --- | --- |
+| `RECV <- topic=… key=…` | a listener consumed a record (ingestion, classification, retry, control, incidents) |
+| `SEND -> topic=… key=…` | the platform published a record (every publish funnels through one place) |
+| `AUDIT … : FROM -> TO [ACTION] by … : …` | a lifecycle transition — the clearest single trace |
+| `Classified …` / `Scheduled retry … on tier …` / `Re-drove … -> topic …` / `Parked …` / `Routed business …` | key decisions |
+
+So one failure reads top-to-bottom as: `RECV inbound → SEND state/audit → SEND classify → RECV classify → Classified… → SEND retry.5s → … → RECV retry (eligible) → Re-drove -> payments.transactions`.
+
+Turn the volume down when you don't need it:
+- `logging.level.com.eventreliability.common.KafkaPublisher=WARN` — hide the per-publish `SEND` firehose.
+- `logging.level.com.eventreliability=WARN` — quiet the platform entirely.
+
+---
+
+## Maker-checker replay (4-eyes)
+
+Replays are bank-grade by default: a **maker** raises a request, a **different checker** approves it,
+and only then does it execute — both steps audited. You can also correct the payload and redirect to
+an allow-listed topic. Locally there's no IdP, so pass an `X-Actor` header to act as different people:
+
+```powershell
+# 1) Maker (alice) requests a replay (optionally correcting payload / redirecting topic)
+$req = Invoke-RestMethod -Method Post "http://localhost:8080/api/failures/<id>/replay" `
+         -Headers @{ "X-Actor" = "alice" } -ContentType "application/json" `
+         -Body (@{ reason = "upstream fixed" } | ConvertTo-Json)
+$req.requestId
+
+# 2) See the pending queue, then a DIFFERENT checker (bob) approves → it executes
+Invoke-RestMethod "http://localhost:8080/api/approvals"
+Invoke-RestMethod -Method Post "http://localhost:8080/api/approvals/$($req.requestId)/approve" `
+  -Headers @{ "X-Actor" = "bob" } -ContentType "application/json" -Body (@{ reason = "verified" } | ConvertTo-Json)
+```
+
+- alice approving her own request → **403** (4-eyes).
+- **Correct payload / redirect:** add `targetTopic` and/or `payloadBase64` (base64 of the corrected
+  message) to the maker body. The target must be the original topic or in `reliability.replay.allowed-topics`.
+- **Reject** instead: `POST /api/approvals/{requestId}/reject`.
+- **Return to maker** (rework): `POST /api/approvals/{requestId}/return` (checker — may attach a
+  suggested `targetTopic`/`payloadBase64` + note). The maker then corrects via
+  `POST /api/approvals/{requestId}/resubmit` (any operator → becomes the maker, request goes back to
+  PENDING, revision bumped). List the maker's correction queue with `GET /api/approvals?status=RETURNED`.
+- **Turn it off** (non-bank/dev): `RELIABILITY_APPROVAL_REQUIRED=false` → replays execute directly.
+
+| Config | Default | Meaning |
+| --- | --- | --- |
+| `reliability.replay.approval-required` | `true` | require maker-checker approval |
+| `reliability.replay.require-distinct-checker` | `true` | checker must differ from maker |
+| `reliability.replay.allowed-topics` | (empty) | extra topics a replay may target |
+
+Roles (under the `secure` profile): `OPERATOR` raises and resubmits requests; `APPROVER`
+approves / rejects / returns them. The checker must differ from the (re)submitting maker.
+
+---
+
 ## Profiles
 
 | Profile | Auth | When to use |
