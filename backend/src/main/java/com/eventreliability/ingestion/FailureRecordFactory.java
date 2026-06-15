@@ -27,6 +27,7 @@ public class FailureRecordFactory {
         FailureRecord.Builder b = FailureRecord.builder()
                 .correlationId(correlationId)
                 .originalTopic(FailureHeaders.getString(h, FailureHeaders.ORIGINAL_TOPIC))
+                .dlqTopic(FailureHeaders.getString(h, FailureHeaders.DLQ_TOPIC))
                 .originalPartition(intOrNull(h, FailureHeaders.ORIGINAL_PARTITION))
                 .originalOffset(longOrNull(h, FailureHeaders.ORIGINAL_OFFSET))
                 .exceptionClass(FailureHeaders.getString(h, FailureHeaders.EXCEPTION_CLASS))

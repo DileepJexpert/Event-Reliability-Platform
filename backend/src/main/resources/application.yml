@@ -68,6 +68,12 @@ reliability:
   # producers keep working. Comma-separated to add more aliases, highest priority first.
   headers:
     correlation-id: ${RELIABILITY_CORRELATION_ID_HEADERS:correlationId}
+  # Multi-team DLQ ingestion (§8). The default <prefix>dlq.inbound is always consumed; list extra full
+  # DLQ topic names here (e.g. one per team/domain) and Brod also subscribes to, provisions and
+  # pattern-detects across them, recording which DLQ each failure arrived on (shown/filterable in the
+  # console). Comma-separated, e.g. RELIABILITY_DLQ_TOPICS=reliability.dlq.lending,reliability.dlq.payments
+  ingest:
+    dlq-topics: ${RELIABILITY_DLQ_TOPICS:}
   topics:
     partitions: ${RELIABILITY_TOPIC_PARTITIONS:3}
     replication-factor: ${RELIABILITY_TOPIC_RF:1}

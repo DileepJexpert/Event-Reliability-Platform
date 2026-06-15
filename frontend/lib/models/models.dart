@@ -8,6 +8,7 @@ class FailureSummary {
   final String? classification;
   final String? recommendedAction;
   final String? originalTopic;
+  final String? dlqTopic;
   final String? sourceApp;
   final String? exceptionClass;
   final String? exceptionMessage;
@@ -24,6 +25,7 @@ class FailureSummary {
     this.classification,
     this.recommendedAction,
     this.originalTopic,
+    this.dlqTopic,
     this.sourceApp,
     this.exceptionClass,
     this.exceptionMessage,
@@ -41,6 +43,7 @@ class FailureSummary {
         classification: j['classification'] as String?,
         recommendedAction: j['recommendedAction'] as String?,
         originalTopic: j['originalTopic'] as String?,
+        dlqTopic: j['dlqTopic'] as String?,
         sourceApp: j['sourceApp'] as String?,
         exceptionClass: j['exceptionClass'] as String?,
         exceptionMessage: j['exceptionMessage'] as String?,
@@ -89,6 +92,7 @@ class FailureDetail {
   final String? classification;
   final String? recommendedAction;
   final String? originalTopic;
+  final String? dlqTopic;
   final int? originalPartition;
   final int? originalOffset;
   final String? sourceApp;
@@ -117,6 +121,7 @@ class FailureDetail {
     this.classification,
     this.recommendedAction,
     this.originalTopic,
+    this.dlqTopic,
     this.originalPartition,
     this.originalOffset,
     this.sourceApp,
@@ -146,6 +151,7 @@ class FailureDetail {
         classification: j['classification'] as String?,
         recommendedAction: j['recommendedAction'] as String?,
         originalTopic: j['originalTopic'] as String?,
+        dlqTopic: j['dlqTopic'] as String?,
         originalPartition: j['originalPartition'] as int?,
         originalOffset: j['originalOffset'] as int?,
         sourceApp: j['sourceApp'] as String?,

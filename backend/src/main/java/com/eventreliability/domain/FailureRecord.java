@@ -26,6 +26,8 @@ public record FailureRecord(
         RecommendedAction recommendedAction,
 
         String originalTopic,
+        /** Which DLQ topic this failure arrived on (multi-team: each team/domain can have its own). */
+        String dlqTopic,
         Integer originalPartition,
         Long originalOffset,
 
@@ -81,6 +83,7 @@ public record FailureRecord(
         private FailureClassification classification;
         private RecommendedAction recommendedAction;
         private String originalTopic;
+        private String dlqTopic;
         private Integer originalPartition;
         private Long originalOffset;
         private String exceptionClass;
@@ -111,6 +114,7 @@ public record FailureRecord(
             this.classification = r.classification;
             this.recommendedAction = r.recommendedAction;
             this.originalTopic = r.originalTopic;
+            this.dlqTopic = r.dlqTopic;
             this.originalPartition = r.originalPartition;
             this.originalOffset = r.originalOffset;
             this.exceptionClass = r.exceptionClass;
@@ -138,6 +142,7 @@ public record FailureRecord(
         public Builder classification(FailureClassification v) { this.classification = v; return this; }
         public Builder recommendedAction(RecommendedAction v) { this.recommendedAction = v; return this; }
         public Builder originalTopic(String v) { this.originalTopic = v; return this; }
+        public Builder dlqTopic(String v) { this.dlqTopic = v; return this; }
         public Builder originalPartition(Integer v) { this.originalPartition = v; return this; }
         public Builder originalOffset(Long v) { this.originalOffset = v; return this; }
         public Builder exceptionClass(String v) { this.exceptionClass = v; return this; }
@@ -162,7 +167,7 @@ public record FailureRecord(
         public FailureRecord build() {
             return new FailureRecord(
                     correlationId, state, classification, recommendedAction,
-                    originalTopic, originalPartition, originalOffset,
+                    originalTopic, dlqTopic, originalPartition, originalOffset,
                     exceptionClass, exceptionMessage, stacktrace,
                     attemptCount, firstFailedAt, sourceApp, eligibleAt, currentTier,
                     schemaVersion, payloadHash, rootCauseSignature,

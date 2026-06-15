@@ -16,7 +16,7 @@ public final class FailureMapper {
     public static FailureSummaryDto toSummary(FailureRecord r) {
         return new FailureSummaryDto(
                 r.correlationId(), r.state(), r.classification(), r.recommendedAction(),
-                r.originalTopic(), r.sourceApp(), r.exceptionClass(), r.exceptionMessage(),
+                r.originalTopic(), r.dlqTopic(), r.sourceApp(), r.exceptionClass(), r.exceptionMessage(),
                 r.attemptCount(), r.currentTier(), r.rootCauseSignature(), r.reason(),
                 r.firstFailedAt(), r.updatedAt());
     }
@@ -24,7 +24,7 @@ public final class FailureMapper {
     public static FailureDetailDto toDetail(FailureRecord r, List<AuditEvent> auditTimeline) {
         return new FailureDetailDto(
                 r.correlationId(), r.state(), r.classification(), r.recommendedAction(),
-                r.originalTopic(), r.originalPartition(), r.originalOffset(), r.sourceApp(),
+                r.originalTopic(), r.dlqTopic(), r.originalPartition(), r.originalOffset(), r.sourceApp(),
                 r.exceptionClass(), r.exceptionMessage(), r.stacktrace(), r.attemptCount(),
                 r.currentTier(), r.eligibleAt(), r.schemaVersion(), r.payloadHash(),
                 r.rootCauseSignature(), r.reason(), r.lastError(), r.lastActor(),

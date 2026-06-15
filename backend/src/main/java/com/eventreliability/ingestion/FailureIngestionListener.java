@@ -6,6 +6,7 @@ import com.eventreliability.audit.AuditService;
 import com.eventreliability.common.KafkaPublisher;
 import com.eventreliability.config.CorrelationIdResolver;
 import com.eventreliability.config.TopicNames;
+import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.observability.PlatformMetrics;
@@ -53,11 +54,14 @@ public class FailureIngestionListener {
         this.metrics = metrics;
     }
 
-    @KafkaListener(topics = "#{@topicNames.inbound()}", id = "ingestion")
+    @KafkaListener(topics = "#{@topicNames.dlqTopics()}", id = "ingestion")
     public void onInboundFailure(ConsumerRecord<String, byte[]> record) {
         Headers h = record.headers();
         log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
                 record.partition(), record.offset());
+        // Record which DLQ this failure arrived on, so it flows through every stage (header-propagated)
+        // and the console can show/filter by it (multi-team: each team's DLQ is distinct).
+        FailureHeaders.put(h, FailureHeaders.DLQ_TOPIC, record.topic());
 
         String correlationId = correlationIds.fromHeaders(h);
         IdSource idSource = IdSource.HEADER;

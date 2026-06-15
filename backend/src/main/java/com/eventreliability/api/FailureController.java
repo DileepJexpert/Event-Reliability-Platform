@@ -41,19 +41,21 @@ public class FailureController {
     }
 
     /**
-     * {@code GET /api/failures?status=&topic=&sourceApp=&classification=&page=&size=} — list/filter.
-     * {@code topic} matches the source (original) topic and {@code sourceApp} the owning application,
-     * so a service owner can self-serve "show my failures" by entering their topic and/or app name.
+     * {@code GET /api/failures?status=&topic=&dlqTopic=&sourceApp=&classification=&page=&size=} —
+     * list/filter. {@code topic} matches the source (original) topic, {@code dlqTopic} the DLQ the
+     * failure arrived on (multi-team), and {@code sourceApp} the owning application — so a service
+     * owner can self-serve "show my failures" by their DLQ / topic / app.
      */
     @GetMapping
     public PageDto<FailureSummaryDto> list(
             @RequestParam(required = false) MessageState status,
             @RequestParam(required = false) String topic,
+            @RequestParam(required = false) String dlqTopic,
             @RequestParam(required = false) String sourceApp,
             @RequestParam(required = false) FailureClassification classification,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return queryService.list(status, topic, sourceApp, classification, page, size);
+        return queryService.list(status, topic, dlqTopic, sourceApp, classification, page, size);
     }
 
     /** {@code GET /api/failures/{correlationId}} — detail incl. full audit timeline. */

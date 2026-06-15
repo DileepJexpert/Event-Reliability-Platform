@@ -26,6 +26,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
   String _status = '';
   String _classification = '';
   final _topicCtrl = TextEditingController();
+  final _dlqTopicCtrl = TextEditingController();
   final _sourceAppCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
 
@@ -43,6 +44,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
   @override
   void dispose() {
     _topicCtrl.dispose();
+    _dlqTopicCtrl.dispose();
     _sourceAppCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -58,6 +60,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
             status: _status.isEmpty ? null : _status,
             classification: _classification.isEmpty ? null : _classification,
             topic: _topicCtrl.text.trim().isEmpty ? null : _topicCtrl.text.trim(),
+            dlqTopic: _dlqTopicCtrl.text.trim().isEmpty ? null : _dlqTopicCtrl.text.trim(),
             sourceApp: _sourceAppCtrl.text.trim().isEmpty ? null : _sourceAppCtrl.text.trim(),
             page: _page,
           );
@@ -79,6 +82,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
       _status = '';
       _classification = '';
       _topicCtrl.clear();
+      _dlqTopicCtrl.clear();
       _sourceAppCtrl.clear();
     });
     _apply();
@@ -159,6 +163,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
             _dropdown('Classification', _classes, _classification,
                 (v) => setState(() => _classification = v ?? '')),
             _field(_topicCtrl, 'Source topic', 'e.g. payments.transactions', 230),
+            _field(_dlqTopicCtrl, 'DLQ topic', 'e.g. reliability.dlq.inbound', 230),
             _field(_sourceAppCtrl, 'Source app', 'e.g. payment-service', 200),
             FilledButton.icon(
               onPressed: _apply,
@@ -239,6 +244,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
                   DataColumn(label: Text('Class')),
                   DataColumn(label: Text('State')),
                   DataColumn(label: Text('Source topic')),
+                  DataColumn(label: Text('DLQ topic')),
                   DataColumn(label: Text('Source app')),
                   DataColumn(label: Text('Exception')),
                   DataColumn(label: Text('Attempts'), numeric: true),
@@ -260,6 +266,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
         DataCell(TagChip(label: f.classification, color: classificationColor(f.classification))),
         DataCell(TagChip(label: f.state, color: stateColor(f.state))),
         DataCell(Text(f.originalTopic ?? '—')),
+        DataCell(Text(f.dlqTopic ?? '—')),
         DataCell(Text(f.sourceApp ?? '—')),
         DataCell(ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
