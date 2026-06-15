@@ -51,7 +51,7 @@ public class ApprovalController {
      * Defaults to PENDING (the checker queue); RETURNED is the maker's correction queue.
      */
     @GetMapping
-    public List<ApprovalDto> list(@RequestParam(required = false, defaultValue = "PENDING") String status) {
+    public List<ApprovalDto> list(@RequestParam(name = "status", required = false, defaultValue = "PENDING") String status) {
         final List<ControlRequest> source = "ALL".equalsIgnoreCase(status)
                 ? readModels.allControlRequests()
                 : readModels.requestsByStatus(parseStatus(status));
@@ -71,7 +71,7 @@ public class ApprovalController {
 
     /** {@code GET /api/approvals/{requestId}} — one request, with original vs corrected payload. */
     @GetMapping("/{requestId}")
-    public ApprovalDto get(@PathVariable String requestId) {
+    public ApprovalDto get(@PathVariable("requestId") String requestId) {
         return readModels.controlRequest(requestId).map(this::toDto)
                 .orElseThrow(() -> new NotFoundException("No approval request " + requestId));
     }
@@ -81,7 +81,7 @@ public class ApprovalController {
      * (request → return → resubmit → approve/reject), drawn from the append-only audit log (§17).
      */
     @GetMapping("/{requestId}/history")
-    public List<AuditEvent> history(@PathVariable String requestId) {
+    public List<AuditEvent> history(@PathVariable("requestId") String requestId) {
         ControlRequest req = readModels.controlRequest(requestId)
                 .orElseThrow(() -> new NotFoundException("No approval request " + requestId));
         return readModels.auditTimeline(req.target()).events().stream()
@@ -92,7 +92,7 @@ public class ApprovalController {
     /** {@code POST /api/approvals/{requestId}/approve} — checker approves (APPROVER, must differ from maker). */
     @PostMapping("/{requestId}/approve")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted approve(@PathVariable String requestId,
+    public ActionAccepted approve(@PathVariable("requestId") String requestId,
                                   @RequestBody(required = false) ActionRequest request) {
         String checker = CurrentUser.name();
         ControlRequest req = approvalService.approve(requestId, checker, request == null ? null : request.reason());
@@ -102,7 +102,7 @@ public class ApprovalController {
     /** {@code POST /api/approvals/{requestId}/reject} — checker rejects (APPROVER, must differ from maker). */
     @PostMapping("/{requestId}/reject")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted reject(@PathVariable String requestId,
+    public ActionAccepted reject(@PathVariable("requestId") String requestId,
                                  @RequestBody(required = false) ActionRequest request) {
         String checker = CurrentUser.name();
         ControlRequest req = approvalService.reject(requestId, checker, request == null ? null : request.reason());
@@ -115,7 +115,7 @@ public class ApprovalController {
      */
     @PostMapping("/{requestId}/return")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted returnToMaker(@PathVariable String requestId,
+    public ActionAccepted returnToMaker(@PathVariable("requestId") String requestId,
                                         @RequestBody(required = false) ReplayRequest request) {
         String checker = CurrentUser.name();
         ControlRequest req = approvalService.returnToMaker(requestId, checker,
@@ -132,7 +132,7 @@ public class ApprovalController {
      */
     @PostMapping("/{requestId}/resubmit")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted resubmit(@PathVariable String requestId,
+    public ActionAccepted resubmit(@PathVariable("requestId") String requestId,
                                    @RequestBody(required = false) ReplayRequest request) {
         String maker = CurrentUser.name();
         ControlRequest req = approvalService.resubmit(requestId, maker,

@@ -49,13 +49,13 @@ public class FailureController {
      */
     @GetMapping
     public PageDto<FailureSummaryDto> list(
-            @RequestParam(required = false) MessageState status,
-            @RequestParam(required = false) String topic,
-            @RequestParam(required = false) String dlqTopic,
-            @RequestParam(required = false) String sourceApp,
-            @RequestParam(required = false) FailureClassification classification,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(name = "status", required = false) MessageState status,
+            @RequestParam(name = "topic", required = false) String topic,
+            @RequestParam(name = "dlqTopic", required = false) String dlqTopic,
+            @RequestParam(name = "sourceApp", required = false) String sourceApp,
+            @RequestParam(name = "classification", required = false) FailureClassification classification,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size) {
         return queryService.list(status, topic, dlqTopic, sourceApp, classification, page, size);
     }
 
@@ -67,7 +67,7 @@ public class FailureController {
 
     /** {@code GET /api/failures/{correlationId}} — detail incl. full audit timeline. */
     @GetMapping("/{correlationId}")
-    public FailureDetailDto detail(@PathVariable String correlationId) {
+    public FailureDetailDto detail(@PathVariable("correlationId") String correlationId) {
         return queryService.detail(correlationId);
     }
 
@@ -77,7 +77,7 @@ public class FailureController {
      */
     @PostMapping("/{correlationId}/replay")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted replay(@PathVariable String correlationId,
+    public ActionAccepted replay(@PathVariable("correlationId") String correlationId,
                                  @RequestBody(required = false) ReplayRequest request) {
         String actor = CurrentUser.name();
         String requestId = approvalService.requestReplay(correlationId, actor,
@@ -90,7 +90,7 @@ public class FailureController {
     /** {@code POST /api/failures/{correlationId}/quarantine} — maker raises a quarantine request (§13). */
     @PostMapping("/{correlationId}/quarantine")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted quarantine(@PathVariable String correlationId,
+    public ActionAccepted quarantine(@PathVariable("correlationId") String correlationId,
                                      @RequestBody(required = false) ActionRequest request) {
         String actor = CurrentUser.name();
         String requestId = approvalService.requestQuarantine(correlationId, actor,
