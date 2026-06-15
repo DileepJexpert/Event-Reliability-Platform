@@ -32,7 +32,8 @@ public record ReliabilityProperties(
         @DefaultValue Housekeeping housekeeping,
         @DefaultValue Replay replay,
         @DefaultValue Headers headers,
-        @DefaultValue Ingest ingest
+        @DefaultValue Ingest ingest,
+        @DefaultValue Ownership ownership
 ) {
 
     /**
@@ -49,6 +50,27 @@ public record ReliabilityProperties(
                             .filter(t -> t != null && !t.isBlank())
                             .map(String::trim)
                             .toList();
+        }
+    }
+
+    /**
+     * Team ownership mapping (multi-team routing). Each failure is attributed to an owning team by
+     * matching its source app and/or original topic against these rules, in order — the first matching
+     * rule wins; unmatched failures fall back to the configured default team. The optional
+     * {@code channel} (e.g. a Slack/Teams webhook) is used by per-team notifications and is never
+     * exposed over the API. A rule matches when every condition it sets matches (so a rule with only
+     * {@code sourceApp} owns all of that app's failures; one with {@code topicPrefix} owns a domain).
+     */
+    public record Ownership(
+            @DefaultValue("Unassigned") String defaultTeam,
+            @DefaultValue List<Rule> rules
+    ) {
+        public Ownership {
+            rules = rules == null ? List.of() : List.copyOf(rules);
+        }
+
+        /** One ownership rule: match by source app / exact topic / topic prefix -> owning team + channel. */
+        public record Rule(String sourceApp, String topic, String topicPrefix, String team, String channel) {
         }
     }
 

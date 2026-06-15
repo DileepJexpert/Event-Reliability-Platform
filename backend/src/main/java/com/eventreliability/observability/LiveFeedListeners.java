@@ -4,6 +4,7 @@ import com.eventreliability.api.FailureMapper;
 import com.eventreliability.common.JsonCodec;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
+import com.eventreliability.ownership.OwnershipService;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -23,10 +24,12 @@ public class LiveFeedListeners {
 
     private final JsonCodec json;
     private final SseService sseService;
+    private final OwnershipService ownership;
 
-    public LiveFeedListeners(JsonCodec json, SseService sseService) {
+    public LiveFeedListeners(JsonCodec json, SseService sseService, OwnershipService ownership) {
         this.json = json;
         this.sseService = sseService;
+        this.ownership = ownership;
     }
 
     @KafkaListener(topics = "#{@topicNames.state()}", id = "sse-failures", groupId = "erp-sse-failures-${random.uuid}")
@@ -36,7 +39,7 @@ public class LiveFeedListeners {
         }
         FailureRecord failure = json.fromBytes(record.value(), FailureRecord.class);
         if (failure != null) {
-            sseService.broadcast("failure", FailureMapper.toSummary(failure));
+            sseService.broadcast("failure", FailureMapper.toSummary(failure, ownership.teamFor(failure)));
         }
     }
 

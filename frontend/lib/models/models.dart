@@ -18,6 +18,7 @@ class FailureSummary {
   final String? reason;
   final int? firstFailedAt;
   final int? updatedAt;
+  final String? owningTeam;
 
   FailureSummary({
     required this.correlationId,
@@ -35,6 +36,7 @@ class FailureSummary {
     this.reason,
     this.firstFailedAt,
     this.updatedAt,
+    this.owningTeam,
   });
 
   factory FailureSummary.fromJson(Map<String, dynamic> j) => FailureSummary(
@@ -53,6 +55,7 @@ class FailureSummary {
         reason: j['reason'] as String?,
         firstFailedAt: j['firstFailedAt'] as int?,
         updatedAt: j['updatedAt'] as int?,
+        owningTeam: j['owningTeam'] as String?,
       );
 }
 
@@ -113,6 +116,7 @@ class FailureDetail {
   final int? firstFailedAt;
   final int? createdAt;
   final int? updatedAt;
+  final String? owningTeam;
   final List<AuditEvent> auditTimeline;
 
   FailureDetail({
@@ -142,6 +146,7 @@ class FailureDetail {
     this.firstFailedAt,
     this.createdAt,
     this.updatedAt,
+    this.owningTeam,
     this.auditTimeline = const [],
   });
 
@@ -172,6 +177,7 @@ class FailureDetail {
         firstFailedAt: j['firstFailedAt'] as int?,
         createdAt: j['createdAt'] as int?,
         updatedAt: j['updatedAt'] as int?,
+        owningTeam: j['owningTeam'] as String?,
         auditTimeline: ((j['auditTimeline'] as List<dynamic>?) ?? const [])
             .map((e) => AuditEvent.fromJson(e as Map<String, dynamic>))
             .toList(),

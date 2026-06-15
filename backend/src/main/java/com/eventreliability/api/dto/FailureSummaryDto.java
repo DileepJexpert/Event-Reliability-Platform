@@ -20,5 +20,6 @@ public record FailureSummaryDto(
         String rootCauseSignature,
         String reason,
         Long firstFailedAt,
-        Long updatedAt) {
+        Long updatedAt,
+        String owningTeam) {
 }

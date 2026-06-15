@@ -211,6 +211,7 @@ class _FailureDetailScreenState extends State<FailureDetailScreen> {
         _kv('Original topic', d.originalTopic),
         _kv('Partition / offset', '${d.originalPartition ?? '—'} / ${d.originalOffset ?? '—'}'),
         _kv('Source app', d.sourceApp),
+        _kv('Owning team', d.owningTeam),
         _kv('Exception', d.exceptionClass),
         _kv('Message', d.exceptionMessage),
         _kv('Attempts', '${d.attemptCount}'),
