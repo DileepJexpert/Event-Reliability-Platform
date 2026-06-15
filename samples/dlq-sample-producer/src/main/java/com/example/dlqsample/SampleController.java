@@ -6,12 +6,12 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -103,16 +103,15 @@ public class SampleController {
     @PostMapping("/produce")
     public Map<String, Object> produce(
             @RequestBody(required = false) String payload,
-            @RequestParam(name = "topic", required = false) String topic,
-            @RequestHeader(name = "correlationId", required = false) String correlationId) {
+            @RequestParam(name = "topic", required = false) String topic) {
         String target = (topic != null && !topic.isBlank()) ? topic : businessTopic;
         String body = (payload != null && !payload.isBlank()) ? payload : "{\"demo\":true}";
-        // Track by the caller's correlation id end-to-end: it becomes the record key AND the
-        // `correlationId` header on the business message, flows through the consumer to the DLQ, and the
-        // platform keys all state on it — so you can find this exact id on the dashboard. If the caller
-        // doesn't supply one, we generate it (and return it).
-        String id = (correlationId != null && !correlationId.isBlank())
-                ? correlationId : UUID.randomUUID().toString();
+        // Use the request's correlation id (set by CorrelationIdFilter from the `correlationId` header,
+        // or generated) so one id flows: HTTP request -> message key/header -> DLQ -> platform.
+        String id = MDC.get(CorrelationIdFilter.MDC_KEY);
+        if (id == null || id.isBlank()) {
+            id = UUID.randomUUID().toString();
+        }
         ProducerRecord<String, String> record = new ProducerRecord<>(target, null, id, body);
         record.headers().add("correlationId", id.getBytes(StandardCharsets.UTF_8));
         kafka.send(record);
