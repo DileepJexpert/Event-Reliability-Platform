@@ -78,6 +78,13 @@ class ApiClient {
         .toList();
   }
 
+  /// Aggregated analytics for the Trends tab (§16).
+  Future<Trends> getTrends() async {
+    final res = await _http.get(Uri.parse('$_base/api/trends'), headers: _headers);
+    _check(res);
+    return Trends.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   // ----- maker actions (raise requests; 4-eyes) -----
 
   Future<void> replay(String correlationId, {String? reason, String? targetTopic, String? payloadBase64}) =>

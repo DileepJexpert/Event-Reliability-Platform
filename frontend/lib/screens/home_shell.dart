@@ -11,6 +11,7 @@ import 'audit_search_screen.dart';
 import 'dashboard_screen.dart';
 import 'failures_screen.dart';
 import 'incidents_screen.dart';
+import 'trends_screen.dart';
 
 /// The authenticated shell: owns the request-scoped services ([ApiClient], [EventStream],
 /// [DashboardState]) and a navigation rail across the console's screens (§16).
@@ -31,6 +32,7 @@ class _HomeShellState extends State<HomeShell> {
     DashboardScreen(),
     FailuresScreen(),
     IncidentsScreen(),
+    TrendsScreen(),
     ApprovalsScreen(),
     AuditSearchScreen(),
   ];
@@ -138,6 +140,7 @@ class _HomeShellState extends State<HomeShell> {
                 NavigationRailDestination(icon: Icon(Icons.dashboard), label: Text('Dashboard')),
                 NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Failures')),
                 NavigationRailDestination(icon: Icon(Icons.warning_amber), label: Text('Incidents')),
+                NavigationRailDestination(icon: Icon(Icons.insights), label: Text('Trends')),
                 NavigationRailDestination(icon: Icon(Icons.approval), label: Text('Approvals')),
                 NavigationRailDestination(icon: Icon(Icons.history), label: Text('Audit')),
               ],

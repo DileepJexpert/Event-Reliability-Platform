@@ -329,3 +329,78 @@ class PageResult<T> {
         totalPages: (j['totalPages'] ?? 0) as int,
       );
 }
+
+/// Aggregated analytics for the Trends tab (§16), mirroring the backend {@code TrendsDto}.
+class Trends {
+  final int total;
+  final int open;
+  final int resolved;
+  final int parked;
+  final double resolutionRate;
+  final int? mttrMillis;
+  final Map<String, int> byClassification;
+  final Map<String, int> byState;
+  final List<NameCount> topTopics;
+  final List<NameCount> topSourceApps;
+  final List<DailyCount> daily;
+
+  const Trends({
+    this.total = 0,
+    this.open = 0,
+    this.resolved = 0,
+    this.parked = 0,
+    this.resolutionRate = 0,
+    this.mttrMillis,
+    this.byClassification = const {},
+    this.byState = const {},
+    this.topTopics = const [],
+    this.topSourceApps = const [],
+    this.daily = const [],
+  });
+
+  factory Trends.fromJson(Map<String, dynamic> j) => Trends(
+        total: (j['total'] ?? 0) as int,
+        open: (j['open'] ?? 0) as int,
+        resolved: (j['resolved'] ?? 0) as int,
+        parked: (j['parked'] ?? 0) as int,
+        resolutionRate: ((j['resolutionRate'] ?? 0) as num).toDouble(),
+        mttrMillis: (j['mttrMillis'] as num?)?.toInt(),
+        byClassification: _intMap(j['byClassification']),
+        byState: _intMap(j['byState']),
+        topTopics: _nameCounts(j['topTopics']),
+        topSourceApps: _nameCounts(j['topSourceApps']),
+        daily: ((j['daily'] as List<dynamic>?) ?? const [])
+            .map((e) => DailyCount.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  static Map<String, int> _intMap(dynamic v) {
+    final m = <String, int>{};
+    if (v is Map) {
+      v.forEach((k, val) => m[k.toString()] = (val as num).toInt());
+    }
+    return m;
+  }
+
+  static List<NameCount> _nameCounts(dynamic v) => ((v as List<dynamic>?) ?? const [])
+      .map((e) => NameCount.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+/// A name (source topic / app) with its failure count.
+class NameCount {
+  final String name;
+  final int count;
+  const NameCount(this.name, this.count);
+  factory NameCount.fromJson(Map<String, dynamic> j) =>
+      NameCount((j['name'] ?? '') as String, (j['count'] ?? 0) as int);
+}
+
+/// Failures first-seen on a given UTC date ({@code yyyy-MM-dd}).
+class DailyCount {
+  final String date;
+  final int count;
+  const DailyCount(this.date, this.count);
+  factory DailyCount.fromJson(Map<String, dynamic> j) =>
+      DailyCount((j['date'] ?? '') as String, (j['count'] ?? 0) as int);
+}
