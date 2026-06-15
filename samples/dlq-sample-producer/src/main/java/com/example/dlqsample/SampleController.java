@@ -84,7 +84,7 @@ public class SampleController {
     }
 
     @PostMapping("/send/storm")
-    public Map<String, Object> sendStorm(@RequestParam(defaultValue = "600") int count) {
+    public Map<String, Object> sendStorm(@RequestParam(name = "count", defaultValue = "600") int count) {
         SampleFailure template = SampleFailures.transientTimeout();
         int sent = producer.sendStorm(template, count);
         return Map.of(
@@ -103,7 +103,7 @@ public class SampleController {
     @PostMapping("/produce")
     public Map<String, Object> produce(
             @RequestBody(required = false) String payload,
-            @RequestParam(required = false) String topic,
+            @RequestParam(name = "topic", required = false) String topic,
             @RequestHeader(name = "correlationId", required = false) String correlationId) {
         String target = (topic != null && !topic.isBlank()) ? topic : businessTopic;
         String body = (payload != null && !payload.isBlank()) ? payload : "{\"demo\":true}";
