@@ -19,9 +19,9 @@ class DemoUser {
 }
 
 const List<DemoUser> kDemoUsers = [
-  DemoUser('alice', 'Alice', 'Maker', 'Operator — raises replay / quarantine requests',
+  DemoUser('dileep', 'Dileep', 'Maker', 'Operator — raises replay / quarantine requests',
       ['VIEWER', 'OPERATOR']),
-  DemoUser('bob', 'Bob', 'Checker', 'Approver — approves / rejects requests (4-eyes)',
+  DemoUser('somokh', 'Somokh', 'Checker', 'Approver — approves / rejects requests (4-eyes)',
       ['VIEWER', 'APPROVER']),
 ];
 

@@ -198,19 +198,19 @@ and only then does it execute — both steps audited. You can also correct the p
 an allow-listed topic. Locally there's no IdP, so pass an `X-Actor` header to act as different people:
 
 ```powershell
-# 1) Maker (alice) requests a replay (optionally correcting payload / redirecting topic)
+# 1) Maker (dileep) requests a replay (optionally correcting payload / redirecting topic)
 $req = Invoke-RestMethod -Method Post "http://localhost:8080/api/failures/<id>/replay" `
-         -Headers @{ "X-Actor" = "alice" } -ContentType "application/json" `
+         -Headers @{ "X-Actor" = "dileep" } -ContentType "application/json" `
          -Body (@{ reason = "upstream fixed" } | ConvertTo-Json)
 $req.requestId
 
-# 2) See the pending queue, then a DIFFERENT checker (bob) approves → it executes
+# 2) See the pending queue, then a DIFFERENT checker (somokh) approves → it executes
 Invoke-RestMethod "http://localhost:8080/api/approvals"
 Invoke-RestMethod -Method Post "http://localhost:8080/api/approvals/$($req.requestId)/approve" `
-  -Headers @{ "X-Actor" = "bob" } -ContentType "application/json" -Body (@{ reason = "verified" } | ConvertTo-Json)
+  -Headers @{ "X-Actor" = "somokh" } -ContentType "application/json" -Body (@{ reason = "verified" } | ConvertTo-Json)
 ```
 
-- alice approving her own request → **403** (4-eyes).
+- dileep approving their own request → **403** (4-eyes).
 - **Correct payload / redirect:** add `targetTopic` and/or `payloadBase64` (base64 of the corrected
   message) to the maker body. The target must be the original topic or in `reliability.replay.allowed-topics`.
 - **Reject** instead: `POST /api/approvals/{requestId}/reject`.

@@ -1,6 +1,7 @@
 package com.eventreliability.config;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -16,19 +17,32 @@ public class TopicNames {
 
     private final String prefix;
     private final List<String> retryTierNames;
+    private final List<String> extraDlqTopics;
 
     public TopicNames(ReliabilityProperties props) {
         this.prefix = props.topicPrefix();
         this.retryTierNames = props.retry().tierNames();
+        this.extraDlqTopics = props.ingest().dlqTopics();
     }
 
     private String n(String suffix) {
         return prefix + suffix;
     }
 
-    /** Entry point for all failures (§8). */
+    /** Entry point for all failures (§8) — the default DLQ. */
     public String inbound() {
         return n("dlq.inbound");
+    }
+
+    /**
+     * All DLQ topics ingestion consumes: the default {@link #inbound()} plus any extra team/domain DLQ
+     * topics configured via {@code reliability.ingest.dlq-topics}. De-duplicated, order preserved.
+     */
+    public String[] dlqTopics() {
+        LinkedHashSet<String> all = new LinkedHashSet<>();
+        all.add(inbound());
+        all.addAll(extraDlqTopics);
+        return all.toArray(String[]::new);
     }
 
     /**

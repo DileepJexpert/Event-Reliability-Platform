@@ -31,8 +31,26 @@ public record ReliabilityProperties(
         @DefaultValue Notifier notifier,
         @DefaultValue Housekeeping housekeeping,
         @DefaultValue Replay replay,
-        @DefaultValue Headers headers
+        @DefaultValue Headers headers,
+        @DefaultValue Ingest ingest
 ) {
+
+    /**
+     * Which DLQ topics Brod consumes (§8). Defaults to just {@code <prefix>dlq.inbound}; add more full
+     * topic names here to let multiple teams/domains each have their own DLQ — Brod subscribes to,
+     * provisions and pattern-detects across all of them, and records which DLQ each failure arrived on.
+     */
+    public record Ingest(
+            @DefaultValue List<String> dlqTopics
+    ) {
+        public Ingest {
+            dlqTopics = dlqTopics == null ? List.of()
+                    : dlqTopics.stream()
+                            .filter(t -> t != null && !t.isBlank())
+                            .map(String::trim)
+                            .toList();
+        }
+    }
 
     /**
      * Inbound header-contract mapping (§6.3). Lets an onboarding org point the platform at the

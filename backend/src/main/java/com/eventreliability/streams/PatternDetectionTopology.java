@@ -64,7 +64,7 @@ public class PatternDetectionTopology {
         Duration grace = props.pattern().grace();
 
         KStream<String, String> hits = builder
-                .stream(topics.inbound(), Consumed.with(str, Serdes.ByteArray()))
+                .stream(java.util.Arrays.asList(topics.dlqTopics()), Consumed.with(str, Serdes.ByteArray()))
                 .process(() -> new SignatureProcessor(correlationIds));
 
         KStream<String, Incident> incidents = hits

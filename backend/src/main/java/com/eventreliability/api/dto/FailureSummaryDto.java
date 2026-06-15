@@ -11,6 +11,7 @@ public record FailureSummaryDto(
         FailureClassification classification,
         RecommendedAction recommendedAction,
         String originalTopic,
+        String dlqTopic,
         String sourceApp,
         String exceptionClass,
         String exceptionMessage,

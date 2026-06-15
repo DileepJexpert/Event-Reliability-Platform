@@ -19,6 +19,7 @@ public record FailureDetailDto(
         FailureClassification classification,
         RecommendedAction recommendedAction,
         String originalTopic,
+        String dlqTopic,
         Integer originalPartition,
         Long originalOffset,
         String sourceApp,

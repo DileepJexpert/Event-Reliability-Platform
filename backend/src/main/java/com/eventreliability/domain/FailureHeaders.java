@@ -21,6 +21,13 @@ public final class FailureHeaders {
     /** Used as the state key. */
     public static final String CORRELATION_ID = "x-correlation-id";
     public static final String ORIGINAL_TOPIC = "x-original-topic";
+
+    /**
+     * Internal: which DLQ topic a failure arrived on. Stamped by ingestion from the consumed topic so
+     * it flows through every stage (header-propagated) and the console can show/filter "which DLQ"
+     * (multi-team). Stripped before a message is re-driven to its business topic.
+     */
+    public static final String DLQ_TOPIC = "x-dlq-topic";
     public static final String ORIGINAL_PARTITION = "x-original-partition";
     public static final String ORIGINAL_OFFSET = "x-original-offset";
     public static final String EXCEPTION_CLASS = "x-exception-class";

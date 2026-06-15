@@ -2,8 +2,10 @@ package com.eventreliability.query;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.TreeSet;
 
 import com.eventreliability.api.FailureMapper;
+import com.eventreliability.api.dto.FacetsDto;
 import com.eventreliability.api.dto.FailureDetailDto;
 import com.eventreliability.api.dto.FailureSummaryDto;
 import com.eventreliability.api.dto.PageDto;
@@ -30,17 +32,17 @@ public class FailureQueryService {
         this.readModels = readModels;
     }
 
-    public PageDto<FailureSummaryDto> list(MessageState status, String topic, String sourceApp,
-                                           FailureClassification classification, int page, int size) {
+    public PageDto<FailureSummaryDto> list(MessageState status, String topic, String dlqTopic,
+                                           String sourceApp, FailureClassification classification,
+                                           int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = Math.min(Math.max(1, size), MAX_PAGE_SIZE);
-        String appNeedle = sourceApp == null ? null : sourceApp.toLowerCase();
 
         List<FailureRecord> filtered = readModels.allFailures().stream()
                 .filter(r -> status == null || r.state() == status)
-                .filter(r -> topic == null || topic.isBlank() || topic.equals(r.originalTopic()))
-                .filter(r -> appNeedle == null || appNeedle.isBlank()
-                        || (r.sourceApp() != null && r.sourceApp().toLowerCase().contains(appNeedle)))
+                .filter(r -> matches(topic, r.originalTopic()))
+                .filter(r -> matches(dlqTopic, r.dlqTopic()))
+                .filter(r -> matches(sourceApp, r.sourceApp()))
                 .filter(r -> classification == null || r.classification() == classification)
                 .sorted(Comparator.comparingLong((FailureRecord r) ->
                         r.updatedAt() == null ? 0L : r.updatedAt()).reversed())
@@ -54,6 +56,33 @@ public class FailureQueryService {
                 .toList();
 
         return PageDto.of(pageContent, safePage, safeSize, total);
+    }
+
+    /** Case-insensitive "contains" match; a blank needle matches everything (char-based filtering). */
+    private static boolean matches(String needle, String value) {
+        if (needle == null || needle.isBlank()) {
+            return true;
+        }
+        return value != null && value.toLowerCase().contains(needle.toLowerCase().trim());
+    }
+
+    /** Distinct source topics / DLQ topics / source apps across all failures, for filter autocomplete. */
+    public FacetsDto facets() {
+        TreeSet<String> topics = new TreeSet<>();
+        TreeSet<String> dlqTopics = new TreeSet<>();
+        TreeSet<String> sourceApps = new TreeSet<>();
+        for (FailureRecord r : readModels.allFailures()) {
+            addIfPresent(topics, r.originalTopic());
+            addIfPresent(dlqTopics, r.dlqTopic());
+            addIfPresent(sourceApps, r.sourceApp());
+        }
+        return new FacetsDto(List.copyOf(topics), List.copyOf(dlqTopics), List.copyOf(sourceApps));
+    }
+
+    private static void addIfPresent(TreeSet<String> set, String value) {
+        if (value != null && !value.isBlank()) {
+            set.add(value);
+        }
     }
 
     public FailureDetailDto detail(String correlationId) {

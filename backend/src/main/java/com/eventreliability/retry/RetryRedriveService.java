@@ -88,6 +88,7 @@ public class RetryRedriveService {
         Headers out = FailureHeaders.copy(h);
         out.remove(FailureHeaders.ELIGIBLE_AT);
         out.remove(FailureHeaders.RETRY_TIER);
+        out.remove(FailureHeaders.DLQ_TOPIC);
         FailureHeaders.put(out, FailureHeaders.ATTEMPT_COUNT, Integer.toString(nextAttempt));
         String key = FailureHeaders.getString(h, FailureHeaders.ORIGINAL_KEY);
 

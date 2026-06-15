@@ -76,8 +76,10 @@ public class TopicProvisioner implements SmartLifecycle {
         short rf = props.topics().replicationFactor();
         List<NewTopic> list = new ArrayList<>();
 
-        // Work / queue topics (delete retention).
-        list.add(plain(topics.inbound(), partitions, rf));
+        // Work / queue topics (delete retention). All configured DLQ topics (multi-team).
+        for (String dlq : topics.dlqTopics()) {
+            list.add(plain(dlq, partitions, rf));
+        }
         list.add(plain(topics.classify(), partitions, rf));
         list.add(plain(topics.parked(), partitions, rf));
         list.add(plain(topics.businessRouted(), partitions, rf));

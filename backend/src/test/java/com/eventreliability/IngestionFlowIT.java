@@ -60,6 +60,8 @@ class IngestionFlowIT {
             assertThat(record.state()).isEqualTo(MessageState.RETRY_SCHEDULED);
             assertThat(record.currentTier()).isEqualTo("5s");
             assertThat(record.rootCauseSignature()).contains("SocketTimeoutException");
+            // The DLQ topic the failure arrived on is captured and survives through to scheduling.
+            assertThat(record.dlqTopic()).isEqualTo(topics.inbound());
         });
     }
 

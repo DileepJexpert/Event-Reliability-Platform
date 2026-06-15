@@ -8,6 +8,7 @@ class FailureSummary {
   final String? classification;
   final String? recommendedAction;
   final String? originalTopic;
+  final String? dlqTopic;
   final String? sourceApp;
   final String? exceptionClass;
   final String? exceptionMessage;
@@ -24,6 +25,7 @@ class FailureSummary {
     this.classification,
     this.recommendedAction,
     this.originalTopic,
+    this.dlqTopic,
     this.sourceApp,
     this.exceptionClass,
     this.exceptionMessage,
@@ -41,6 +43,7 @@ class FailureSummary {
         classification: j['classification'] as String?,
         recommendedAction: j['recommendedAction'] as String?,
         originalTopic: j['originalTopic'] as String?,
+        dlqTopic: j['dlqTopic'] as String?,
         sourceApp: j['sourceApp'] as String?,
         exceptionClass: j['exceptionClass'] as String?,
         exceptionMessage: j['exceptionMessage'] as String?,
@@ -89,6 +92,7 @@ class FailureDetail {
   final String? classification;
   final String? recommendedAction;
   final String? originalTopic;
+  final String? dlqTopic;
   final int? originalPartition;
   final int? originalOffset;
   final String? sourceApp;
@@ -117,6 +121,7 @@ class FailureDetail {
     this.classification,
     this.recommendedAction,
     this.originalTopic,
+    this.dlqTopic,
     this.originalPartition,
     this.originalOffset,
     this.sourceApp,
@@ -146,6 +151,7 @@ class FailureDetail {
         classification: j['classification'] as String?,
         recommendedAction: j['recommendedAction'] as String?,
         originalTopic: j['originalTopic'] as String?,
+        dlqTopic: j['dlqTopic'] as String?,
         originalPartition: j['originalPartition'] as int?,
         originalOffset: j['originalOffset'] as int?,
         sourceApp: j['sourceApp'] as String?,
@@ -169,6 +175,22 @@ class FailureDetail {
         auditTimeline: ((j['auditTimeline'] as List<dynamic>?) ?? const [])
             .map((e) => AuditEvent.fromJson(e as Map<String, dynamic>))
             .toList(),
+      );
+}
+
+/// Distinct filter values for the failures-screen autocomplete (§16).
+class Facets {
+  final List<String> topics;
+  final List<String> dlqTopics;
+  final List<String> sourceApps;
+
+  const Facets({this.topics = const [], this.dlqTopics = const [], this.sourceApps = const []});
+
+  factory Facets.fromJson(Map<String, dynamic> j) => Facets(
+        topics: ((j['topics'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+        dlqTopics: ((j['dlqTopics'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+        sourceApps:
+            ((j['sourceApps'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
       );
 }
 

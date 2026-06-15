@@ -35,6 +35,7 @@ class ApiClient {
   Future<PageResult<FailureSummary>> listFailures({
     String? status,
     String? topic,
+    String? dlqTopic,
     String? sourceApp,
     String? classification,
     int page = 0,
@@ -45,6 +46,7 @@ class ApiClient {
       'size': '$size',
       if (status != null && status.isNotEmpty) 'status': status,
       if (topic != null && topic.isNotEmpty) 'topic': topic,
+      if (dlqTopic != null && dlqTopic.isNotEmpty) 'dlqTopic': dlqTopic,
       if (sourceApp != null && sourceApp.isNotEmpty) 'sourceApp': sourceApp,
       if (classification != null && classification.isNotEmpty) 'classification': classification,
     };
@@ -59,6 +61,13 @@ class ApiClient {
     final res = await _http.get(Uri.parse('$_base/api/failures/$correlationId'), headers: _headers);
     _check(res);
     return FailureDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  /// Distinct topics / DLQ topics / source apps across all failures, to power the filter autocomplete.
+  Future<Facets> getFacets() async {
+    final res = await _http.get(Uri.parse('$_base/api/failures/facets'), headers: _headers);
+    _check(res);
+    return Facets.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   Future<List<Incident>> listIncidents() async {
