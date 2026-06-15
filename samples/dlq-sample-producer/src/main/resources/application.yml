@@ -47,9 +47,6 @@ sim:
   max-attempts: ${SIM_MAX_ATTEMPTS:3}
 
 logging:
-  pattern:
-    # Prefix every log line with the request's correlation id (set by CorrelationIdFilter) for tracing.
-    level: "%5p [%X{correlationId:-}]"
   level:
     com.example.dlqsample: INFO
     org.apache.kafka.clients.producer.ProducerConfig: WARN
