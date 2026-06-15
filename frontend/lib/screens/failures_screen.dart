@@ -281,6 +281,7 @@ class _FailuresScreenState extends State<FailuresScreen> {
                   DataColumn(label: Text('Source topic')),
                   DataColumn(label: Text('DLQ topic')),
                   DataColumn(label: Text('Source app')),
+                  DataColumn(label: Text('Team')),
                   DataColumn(label: Text('Exception')),
                   DataColumn(label: Text('Attempts'), numeric: true),
                   DataColumn(label: Text('Updated')),
@@ -303,6 +304,9 @@ class _FailuresScreenState extends State<FailuresScreen> {
         DataCell(Text(f.originalTopic ?? '—')),
         DataCell(Text(f.dlqTopic ?? '—')),
         DataCell(Text(f.sourceApp ?? '—')),
+        DataCell((f.owningTeam == null || f.owningTeam!.isEmpty)
+            ? const Text('—')
+            : TagChip(label: f.owningTeam, color: Colors.blueGrey)),
         DataCell(ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
           child: Text(f.exceptionClass ?? f.rootCauseSignature ?? '—',

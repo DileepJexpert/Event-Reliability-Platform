@@ -40,5 +40,6 @@ public record FailureDetailDto(
         Long firstFailedAt,
         Long createdAt,
         Long updatedAt,
+        String owningTeam,
         List<AuditEvent> auditTimeline) {
 }

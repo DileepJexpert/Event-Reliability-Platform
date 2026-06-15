@@ -12,6 +12,7 @@ import com.eventreliability.api.dto.PageDto;
 import com.eventreliability.domain.FailureClassification;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
+import com.eventreliability.ownership.OwnershipService;
 import com.eventreliability.streams.ReadModels;
 
 import org.springframework.stereotype.Service;
@@ -27,9 +28,11 @@ public class FailureQueryService {
     private static final int MAX_PAGE_SIZE = 500;
 
     private final ReadModels readModels;
+    private final OwnershipService ownership;
 
-    public FailureQueryService(ReadModels readModels) {
+    public FailureQueryService(ReadModels readModels, OwnershipService ownership) {
         this.readModels = readModels;
+        this.ownership = ownership;
     }
 
     public PageDto<FailureSummaryDto> list(MessageState status, String topic, String dlqTopic,
@@ -52,7 +55,7 @@ public class FailureQueryService {
         List<FailureSummaryDto> pageContent = filtered.stream()
                 .skip((long) safePage * safeSize)
                 .limit(safeSize)
-                .map(FailureMapper::toSummary)
+                .map(r -> FailureMapper.toSummary(r, ownership.teamFor(r)))
                 .toList();
 
         return PageDto.of(pageContent, safePage, safeSize, total);
@@ -88,6 +91,7 @@ public class FailureQueryService {
     public FailureDetailDto detail(String correlationId) {
         FailureRecord record = readModels.failure(correlationId)
                 .orElseThrow(() -> new NotFoundException("No failure found for correlation id " + correlationId));
-        return FailureMapper.toDetail(record, readModels.auditTimeline(correlationId).events());
+        return FailureMapper.toDetail(record, readModels.auditTimeline(correlationId).events(),
+                ownership.teamFor(record));
     }
 }

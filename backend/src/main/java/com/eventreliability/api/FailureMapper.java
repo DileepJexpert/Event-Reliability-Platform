@@ -13,15 +13,15 @@ public final class FailureMapper {
     private FailureMapper() {
     }
 
-    public static FailureSummaryDto toSummary(FailureRecord r) {
+    public static FailureSummaryDto toSummary(FailureRecord r, String owningTeam) {
         return new FailureSummaryDto(
                 r.correlationId(), r.state(), r.classification(), r.recommendedAction(),
                 r.originalTopic(), r.dlqTopic(), r.sourceApp(), r.exceptionClass(), r.exceptionMessage(),
                 r.attemptCount(), r.currentTier(), r.rootCauseSignature(), r.reason(),
-                r.firstFailedAt(), r.updatedAt());
+                r.firstFailedAt(), r.updatedAt(), owningTeam);
     }
 
-    public static FailureDetailDto toDetail(FailureRecord r, List<AuditEvent> auditTimeline) {
+    public static FailureDetailDto toDetail(FailureRecord r, List<AuditEvent> auditTimeline, String owningTeam) {
         return new FailureDetailDto(
                 r.correlationId(), r.state(), r.classification(), r.recommendedAction(),
                 r.originalTopic(), r.dlqTopic(), r.originalPartition(), r.originalOffset(), r.sourceApp(),
@@ -29,6 +29,6 @@ public final class FailureMapper {
                 r.currentTier(), r.eligibleAt(), r.schemaVersion(), r.payloadHash(),
                 r.rootCauseSignature(), r.reason(), r.lastError(), r.lastActor(),
                 r.payloadBase64(), r.headers(), r.firstFailedAt(), r.createdAt(), r.updatedAt(),
-                auditTimeline);
+                owningTeam, auditTimeline);
     }
 }

@@ -6,19 +6,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.eventreliability.common.JsonCodec;
 import com.eventreliability.config.ReliabilityProperties;
 import com.eventreliability.domain.Incident;
+import com.eventreliability.ownership.OwnershipService;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 /**
  * Minimal in-process incident notifier (§14): consumes {@code reliability.incidents} on the shared
- * platform consumer group (so each incident is handled by exactly one instance) and fans new
- * incidents to a log line or an internal webhook. No external paging platform; richer on-call is
- * explicitly out of scope.
+ * platform consumer group (so each incident is handled by exactly one instance) and routes new
+ * incidents to the <em>owning team's</em> channel (multi-team), falling back to the global webhook or
+ * a log line. No external paging platform; richer on-call is explicitly out of scope.
  *
  * <p>Incidents re-emit as their window count grows, so a first-seen set de-duplicates: each incident
  * id notifies once. The set is bounded with a coarse cap to avoid unbounded growth.
@@ -31,12 +31,16 @@ public class IncidentNotifier {
 
     private final JsonCodec json;
     private final ReliabilityProperties props;
-    private final RestClient restClient = RestClient.create();
+    private final OwnershipService ownership;
+    private final NotificationSender sender;
     private final Set<String> notified = ConcurrentHashMap.newKeySet();
 
-    public IncidentNotifier(JsonCodec json, ReliabilityProperties props) {
+    public IncidentNotifier(JsonCodec json, ReliabilityProperties props, OwnershipService ownership,
+                            NotificationSender sender) {
         this.json = json;
         this.props = props;
+        this.ownership = ownership;
+        this.sender = sender;
     }
 
     @KafkaListener(topics = "#{@topicNames.incidents()}", id = "incident-notifier")
@@ -44,43 +48,40 @@ public class IncidentNotifier {
         log.info("RECV <- topic={} key={} partition={} offset={}", record.topic(), record.key(),
                 record.partition(), record.offset());
         Incident incident = json.fromBytes(record.value(), Incident.class);
-        if (incident == null) {
-            return;
+        if (incident != null) {
+            handle(incident);
         }
+    }
+
+    /** De-duplicate, resolve the owning team + channel, and dispatch the notification. */
+    void handle(Incident incident) {
         if (notified.size() > MAX_TRACKED) {
             notified.clear();
         }
         if (!notified.add(incident.id())) {
             return; // already notified for this incident
         }
-        notify(incident);
-    }
-
-    private void notify(Incident incident) {
         ReliabilityProperties.Notifier cfg = props.notifier();
+        OwnershipService.Owner owner = ownership.ownerFor(null, incident.sourceTopic());
         String summary = String.format(
-                "INCIDENT %s — %d failures of '%s' on '%s' in the window starting %d",
+                "INCIDENT %s — %d failures of '%s' on '%s' (owner: %s) in the window starting %d",
                 incident.id(), incident.count(), incident.rootCause(), incident.sourceTopic(),
-                incident.windowStart());
+                owner.team(), incident.windowStart());
 
         if (!cfg.enabled()) {
             log.warn("[notifier disabled] {}", summary);
             return;
         }
-        if ("webhook".equalsIgnoreCase(cfg.channel()) && cfg.webhookUrl() != null && !cfg.webhookUrl().isBlank()) {
-            try {
-                restClient.post()
-                        .uri(cfg.webhookUrl())
-                        .header("Content-Type", "application/json")
-                        .body(incident)
-                        .retrieve()
-                        .toBodilessEntity();
-                log.info("Notified webhook of {}", incident.id());
-            } catch (Exception ex) {
-                log.error("Failed to notify webhook of {}: {}", incident.id(), ex.getMessage());
-            }
-        } else {
-            log.warn("[ALERT] {}", summary);
+        // Prefer the owning team's channel; fall back to the global webhook (when in webhook mode).
+        String globalWebhook = "webhook".equalsIgnoreCase(cfg.channel()) ? cfg.webhookUrl() : null;
+        String channel = firstNonBlank(owner.channel(), globalWebhook);
+        sender.send(new NotificationSender.Notification(owner.team(), channel, summary, incident));
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) {
+            return a;
         }
+        return (b != null && !b.isBlank()) ? b : null;
     }
 }

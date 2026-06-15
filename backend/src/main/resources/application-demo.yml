@@ -1,0 +1,31 @@
+# ---------------------------------------------------------------------------------------------------
+# Demo profile — activate with:  --spring.profiles.active=demo   (or SPRING_PROFILES_ACTIVE=demo)
+#
+#   mvn spring-boot:run -Dspring-boot.run.profiles=demo
+#
+# Tunes thresholds so the Dashboard, Incidents page and per-team alerts light up with only a handful
+# of failures. NOT for production — the real, conservative values live in application.yml and still
+# apply unless this profile is active.
+# ---------------------------------------------------------------------------------------------------
+reliability:
+  pattern:
+    # Raise an incident after just 5 failures of the same root cause in a 2-minute window
+    # (production defaults are 500 in a 5-minute window).
+    window: 2m
+    threshold: 5
+    grace: 5s
+  # Surface per-team incident alerts in the console log during the demo — no real webhook needed.
+  # Give an ownership rule below a `channel` (Slack/Teams incoming webhook) to actually POST instead.
+  notifier:
+    enabled: true
+    channel: log
+  # Example team ownership so failures are attributed (the Team column / detail) and incidents are
+  # routed to a team. Matches by source app / exact topic / topic prefix; first match wins, else
+  # `default-team`. Send via the HTTP intake or sample with these sources to see attribution.
+  ownership:
+    default-team: Unassigned
+    rules:
+      - { topic-prefix: "payments.", team: "Payments" }
+      - { topic-prefix: "orders.", team: "Orders" }
+      - { topic-prefix: "lending.", team: "Lending" }
+      - { source-app: "settlement-service", team: "Payments" }
