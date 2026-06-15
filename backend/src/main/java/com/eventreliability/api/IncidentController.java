@@ -45,7 +45,7 @@ public class IncidentController {
     }
 
     @GetMapping("/{id}")
-    public Incident detail(@PathVariable String id) {
+    public Incident detail(@PathVariable("id") String id) {
         return readModels.incident(id)
                 .orElseThrow(() -> new NotFoundException("No incident found for id " + id));
     }
@@ -53,7 +53,7 @@ public class IncidentController {
     /** {@code POST /api/incidents/{id}/bulk-replay} — maker requests one-click cohort recovery (§13). */
     @PostMapping("/{id}/bulk-replay")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public ActionAccepted bulkReplay(@PathVariable String id,
+    public ActionAccepted bulkReplay(@PathVariable("id") String id,
                                      @RequestBody(required = false) ReplayRequest request) {
         String actor = CurrentUser.name();
         String requestId = approvalService.requestBulkReplay(id, actor,
