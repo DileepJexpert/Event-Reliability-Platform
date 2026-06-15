@@ -4,16 +4,19 @@ import com.eventreliability.api.dto.ActionAccepted;
 import com.eventreliability.api.dto.ActionRequest;
 import com.eventreliability.api.dto.FacetsDto;
 import com.eventreliability.api.dto.FailureDetailDto;
+import com.eventreliability.api.dto.FailureIntakeRequest;
 import com.eventreliability.api.dto.FailureSummaryDto;
 import com.eventreliability.api.dto.PageDto;
 import com.eventreliability.api.dto.ReplayRequest;
 import com.eventreliability.control.ApprovalService;
 import com.eventreliability.domain.FailureClassification;
 import com.eventreliability.domain.MessageState;
+import com.eventreliability.ingestion.FailureIntakeService;
 import com.eventreliability.query.FailureQueryService;
 import com.eventreliability.security.CurrentUser;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,10 +38,26 @@ public class FailureController {
 
     private final FailureQueryService queryService;
     private final ApprovalService approvalService;
+    private final FailureIntakeService intakeService;
 
-    public FailureController(FailureQueryService queryService, ApprovalService approvalService) {
+    public FailureController(FailureQueryService queryService, ApprovalService approvalService,
+                            FailureIntakeService intakeService) {
         this.queryService = queryService;
         this.approvalService = approvalService;
+        this.intakeService = intakeService;
+    }
+
+    /**
+     * {@code POST /api/failures} — HTTP intake ("all-error handler"): a non-Kafka producer (batch/EOD
+     * job, REST integration, file processor) submits a failure. It is published to the inbound DLQ and
+     * flows through the same ingestion -> classification -> retry/park pipeline as a Kafka DLQ failure.
+     * Returns 202 with the correlation id (generated if the caller didn't supply one).
+     */
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ActionAccepted submit(@RequestBody(required = false) FailureIntakeRequest request) {
+        String id = intakeService.submit(request);
+        return ActionAccepted.of("submit-failure", id, CurrentUser.name());
     }
 
     /**
