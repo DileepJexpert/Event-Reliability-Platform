@@ -108,6 +108,9 @@ reliability:
     # allowed-topics: payments.retry,orders.retry
 
 logging:
+  pattern:
+    # Prefix every log line with the request's correlation id (set by CorrelationIdFilter) for tracing.
+    level: "%5p [%X{correlationId:-}]"
   level:
     com.eventreliability: INFO
     # SSE clients (browser console / a curl on /api/stream) dropping mid-stream surface as broken-pipe

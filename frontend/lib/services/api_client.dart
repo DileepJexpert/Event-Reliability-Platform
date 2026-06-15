@@ -21,15 +21,18 @@ class ApiException implements Exception {
 class ApiClient {
   final AuthService auth;
   final http.Client _http = http.Client();
+  int _cidSeq = 0;
 
   ApiClient(this.auth);
 
   String get _base => AppConfig.apiBaseUrl;
 
+  // Every request carries a correlation id; the backend echoes/uses it and stamps it on its logs.
   Map<String, String> get _headers => {
         'Accept': 'application/json',
         if (auth.token != null) 'Authorization': 'Bearer ${auth.token}',
         'X-Actor': auth.actingAs,
+        'correlationId': 'ui-${DateTime.now().millisecondsSinceEpoch}-${_cidSeq++}',
       };
 
   Future<PageResult<FailureSummary>> listFailures({
