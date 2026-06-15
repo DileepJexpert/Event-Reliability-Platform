@@ -29,6 +29,10 @@ class _FailuresScreenState extends State<FailuresScreen> {
   final _dlqTopicCtrl = TextEditingController();
   final _sourceAppCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
+  final _topicFocus = FocusNode();
+  final _dlqTopicFocus = FocusNode();
+  final _sourceAppFocus = FocusNode();
+  Facets _facets = const Facets();
 
   int _page = 0;
   PageResult<FailureSummary>? _result;
@@ -38,7 +42,10 @@ class _FailuresScreenState extends State<FailuresScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _loadFacets();
+    });
   }
 
   @override
@@ -47,6 +54,9 @@ class _FailuresScreenState extends State<FailuresScreen> {
     _dlqTopicCtrl.dispose();
     _sourceAppCtrl.dispose();
     _searchCtrl.dispose();
+    _topicFocus.dispose();
+    _dlqTopicFocus.dispose();
+    _sourceAppFocus.dispose();
     super.dispose();
   }
 
@@ -69,6 +79,15 @@ class _FailuresScreenState extends State<FailuresScreen> {
       setState(() => _error = '$e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadFacets() async {
+    try {
+      final f = await context.read<ApiClient>().getFacets();
+      if (mounted) setState(() => _facets = f);
+    } catch (_) {
+      // Non-fatal: the autocomplete simply won't suggest until facets load.
     }
   }
 
@@ -162,9 +181,9 @@ class _FailuresScreenState extends State<FailuresScreen> {
             _dropdown('Status', _states, _status, (v) => setState(() => _status = v ?? '')),
             _dropdown('Classification', _classes, _classification,
                 (v) => setState(() => _classification = v ?? '')),
-            _field(_topicCtrl, 'Source topic', 'e.g. payments.transactions', 230),
-            _field(_dlqTopicCtrl, 'DLQ topic', 'e.g. reliability.dlq.inbound', 230),
-            _field(_sourceAppCtrl, 'Source app', 'e.g. payment-service', 200),
+            _autoField(_topicCtrl, _topicFocus, 'Source topic', 'type to match…', 230, _facets.topics),
+            _autoField(_dlqTopicCtrl, _dlqTopicFocus, 'DLQ topic', 'type to match…', 230, _facets.dlqTopics),
+            _autoField(_sourceAppCtrl, _sourceAppFocus, 'Source app', 'type to match…', 200, _facets.sourceApps),
             FilledButton.icon(
               onPressed: _apply,
               icon: const Icon(Icons.filter_alt, size: 18),
@@ -183,13 +202,29 @@ class _FailuresScreenState extends State<FailuresScreen> {
     );
   }
 
-  Widget _field(TextEditingController c, String label, String hint, double width) {
+  /// A topic/app filter with type-ahead: shows matching known values in a dropdown as you type
+  /// (char-based), and the backend filters by a case-insensitive "contains" match.
+  Widget _autoField(TextEditingController c, FocusNode f, String label, String hint, double width,
+      List<String> options) {
     return SizedBox(
       width: width,
-      child: TextField(
-        controller: c,
-        decoration: InputDecoration(labelText: label, hintText: hint),
-        onSubmitted: (_) => _apply(),
+      child: Autocomplete<String>(
+        textEditingController: c,
+        focusNode: f,
+        optionsBuilder: (TextEditingValue value) {
+          final q = value.text.trim().toLowerCase();
+          if (q.isEmpty) return const Iterable<String>.empty();
+          return options.where((o) => o.toLowerCase().contains(q)).take(8);
+        },
+        onSelected: (_) => _apply(),
+        fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+          return TextField(
+            controller: controller,
+            focusNode: focusNode,
+            decoration: InputDecoration(labelText: label, hintText: hint),
+            onSubmitted: (_) => _apply(),
+          );
+        },
       ),
     );
   }

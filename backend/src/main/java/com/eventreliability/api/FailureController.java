@@ -2,6 +2,7 @@ package com.eventreliability.api;
 
 import com.eventreliability.api.dto.ActionAccepted;
 import com.eventreliability.api.dto.ActionRequest;
+import com.eventreliability.api.dto.FacetsDto;
 import com.eventreliability.api.dto.FailureDetailDto;
 import com.eventreliability.api.dto.FailureSummaryDto;
 import com.eventreliability.api.dto.PageDto;
@@ -56,6 +57,12 @@ public class FailureController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return queryService.list(status, topic, dlqTopic, sourceApp, classification, page, size);
+    }
+
+    /** {@code GET /api/failures/facets} — distinct topics / DLQ topics / source apps for filter autocomplete. */
+    @GetMapping("/facets")
+    public FacetsDto facets() {
+        return queryService.facets();
     }
 
     /** {@code GET /api/failures/{correlationId}} — detail incl. full audit timeline. */

@@ -178,6 +178,22 @@ class FailureDetail {
       );
 }
 
+/// Distinct filter values for the failures-screen autocomplete (§16).
+class Facets {
+  final List<String> topics;
+  final List<String> dlqTopics;
+  final List<String> sourceApps;
+
+  const Facets({this.topics = const [], this.dlqTopics = const [], this.sourceApps = const []});
+
+  factory Facets.fromJson(Map<String, dynamic> j) => Facets(
+        topics: ((j['topics'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+        dlqTopics: ((j['dlqTopics'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+        sourceApps:
+            ((j['sourceApps'] as List<dynamic>?) ?? const []).map((e) => e.toString()).toList(),
+      );
+}
+
 class Incident {
   final String id;
   final String rootCause;

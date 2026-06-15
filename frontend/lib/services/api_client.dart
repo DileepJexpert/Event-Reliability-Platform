@@ -63,6 +63,13 @@ class ApiClient {
     return FailureDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Distinct topics / DLQ topics / source apps across all failures, to power the filter autocomplete.
+  Future<Facets> getFacets() async {
+    final res = await _http.get(Uri.parse('$_base/api/failures/facets'), headers: _headers);
+    _check(res);
+    return Facets.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   Future<List<Incident>> listIncidents() async {
     final res = await _http.get(Uri.parse('$_base/api/incidents'), headers: _headers);
     _check(res);
