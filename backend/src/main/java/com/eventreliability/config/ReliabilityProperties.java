@@ -33,7 +33,8 @@ public record ReliabilityProperties(
         @DefaultValue Replay replay,
         @DefaultValue Headers headers,
         @DefaultValue Ingest ingest,
-        @DefaultValue Ownership ownership
+        @DefaultValue Ownership ownership,
+        @DefaultValue CircuitBreaker circuitBreaker
 ) {
 
     /**
@@ -211,4 +212,18 @@ public record ReliabilityProperties(
             return allowedTopics.contains(topic);
         }
     }
+
+    /**
+     * Circuit breaker for the platform's OWN message processing (§ resilience). If Brod's listeners
+     * throw repeatedly within {@link #window}, consumption is paused and a CRITICAL alert is raised
+     * rather than silently skipping records ("stop-on-error" safety valve). Each failing record first
+     * gets {@link #retries} quick re-attempts ({@link #retryInterval} apart). Resume via the admin API.
+     */
+    public record CircuitBreaker(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("10") int failureThreshold,
+            @DefaultValue("PT1M") Duration window,
+            @DefaultValue("2") int retries,
+            @DefaultValue("PT2S") Duration retryInterval
+    ) {}
 }

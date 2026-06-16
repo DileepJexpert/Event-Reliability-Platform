@@ -32,10 +32,13 @@ public class WebhookNotificationSender implements NotificationSender {
                     .body(Map.of("text", n.summary()))
                     .retrieve()
                     .toBodilessEntity();
-            log.info("Notified {} channel of incident {}", n.team(), n.incident().id());
+            log.info("Notified {} channel ({})", n.team(), ref(n));
         } catch (Exception ex) {
-            log.error("Failed to notify {} channel of incident {}: {}",
-                    n.team(), n.incident().id(), ex.getMessage());
+            log.error("Failed to notify {} channel ({}): {}", n.team(), ref(n), ex.getMessage());
         }
+    }
+
+    private static String ref(Notification n) {
+        return n.incident() != null ? "incident " + n.incident().id() : "platform alert";
     }
 }
