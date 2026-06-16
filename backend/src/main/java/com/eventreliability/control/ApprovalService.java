@@ -9,6 +9,7 @@ import com.eventreliability.config.ReliabilityProperties;
 import com.eventreliability.config.TopicNames;
 import com.eventreliability.domain.ControlCommand;
 import com.eventreliability.domain.ControlRequest;
+import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.Incident;
 import com.eventreliability.domain.MessageState;
@@ -60,6 +61,7 @@ public class ApprovalService {
                                 String targetTopic, String payloadBase64) {
         FailureRecord record = requireFailure(correlationId);
         requireAllowedTarget(targetTopic, record.originalTopic());
+        requireNoNewerSameKeyFailure(record);
 
         if (!props.replay().approvalRequired()) {
             stateService.put(record.toBuilder().state(MessageState.REPLAY_REQUESTED).lastActor(maker).build());
@@ -213,6 +215,37 @@ public class ApprovalService {
             throw new IllegalArgumentException("Target topic '" + targetTopic
                     + "' is not permitted (not the original topic and not in reliability.replay.allowed-topics)");
         }
+    }
+
+    /**
+     * Refuse a single replay when a <em>newer</em> failure exists for the same original key on the same
+     * source topic — replaying the older one would land it on the partition <em>after</em> the newer
+     * one, violating per-key order (e.g. ledger debit-before-credit). Skipped when the record carries
+     * no {@code x-original-key} / offset (no ordering info to enforce). For cohort recovery use bulk
+     * replay, which dispatches each key's records in source-offset order.
+     */
+    private void requireNoNewerSameKeyFailure(FailureRecord record) {
+        String key = originalKey(record);
+        if (key == null || record.originalTopic() == null || record.originalOffset() == null) {
+            return;
+        }
+        FailureRecord newer = readModels.allFailures().stream()
+                .filter(r -> !r.correlationId().equals(record.correlationId()))
+                .filter(r -> record.originalTopic().equals(r.originalTopic()))
+                .filter(r -> key.equals(originalKey(r)))
+                .filter(r -> r.originalOffset() != null && r.originalOffset() > record.originalOffset())
+                .findAny()
+                .orElse(null);
+        if (newer != null) {
+            throw new IllegalStateException("Out-of-order replay: a newer failure on key '" + key
+                    + "' (correlation " + newer.correlationId() + ", offset " + newer.originalOffset()
+                    + ") exists on topic '" + record.originalTopic() + "'. Replay it first, or use bulk"
+                    + " replay (which preserves per-key offset order across the cohort).");
+        }
+    }
+
+    private static String originalKey(FailureRecord r) {
+        return r == null || r.headers() == null ? null : r.headers().get(FailureHeaders.ORIGINAL_KEY);
     }
 
     private void requireDistinctChecker(ControlRequest req, String checker) {

@@ -1,6 +1,7 @@
 package com.eventreliability.control;
 
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -75,9 +76,13 @@ public class ReplayService {
             return;
         }
         String signature = incident.rootCause();
+        // Sort the cohort by (original topic, original key, original offset) so re-driven messages on
+        // the same key are republished in source-offset order — preserving per-key ordering on the
+        // destination partition for order-sensitive flows (e.g. ledger debit-before-credit).
         List<FailureRecord> cohort = readModels.allFailures().stream()
                 .filter(r -> signature.equals(r.rootCauseSignature()))
                 .filter(r -> r.state() != MessageState.RESOLVED && r.state() != MessageState.REPLAYED)
+                .sorted(BULK_REPLAY_ORDER)
                 .limit(props.replay().bulkBatchSize())
                 .toList();
 
@@ -137,4 +142,13 @@ public class ReplayService {
     private static byte[] decode(String base64) {
         return base64 == null ? null : Base64.getDecoder().decode(base64);
     }
+
+    private static String originalKey(FailureRecord r) {
+        return r == null || r.headers() == null ? null : r.headers().get(FailureHeaders.ORIGINAL_KEY);
+    }
+
+    private static final Comparator<FailureRecord> BULK_REPLAY_ORDER = Comparator
+            .comparing(FailureRecord::originalTopic, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(ReplayService::originalKey, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(r -> r.originalOffset() == null ? Long.MAX_VALUE : r.originalOffset());
 }
