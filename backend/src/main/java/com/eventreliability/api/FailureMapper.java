@@ -21,14 +21,15 @@ public final class FailureMapper {
                 r.firstFailedAt(), r.updatedAt(), owningTeam);
     }
 
-    public static FailureDetailDto toDetail(FailureRecord r, List<AuditEvent> auditTimeline, String owningTeam) {
+    public static FailureDetailDto toDetail(FailureRecord r, List<AuditEvent> auditTimeline,
+                                            String owningTeam, String maskedPayloadBase64) {
         return new FailureDetailDto(
                 r.correlationId(), r.state(), r.classification(), r.recommendedAction(),
                 r.originalTopic(), r.dlqTopic(), r.originalPartition(), r.originalOffset(), r.sourceApp(),
                 r.exceptionClass(), r.exceptionMessage(), r.stacktrace(), r.attemptCount(),
                 r.currentTier(), r.eligibleAt(), r.schemaVersion(), r.payloadHash(),
                 r.rootCauseSignature(), r.reason(), r.lastError(), r.lastActor(),
-                r.payloadBase64(), r.headers(), r.firstFailedAt(), r.createdAt(), r.updatedAt(),
+                maskedPayloadBase64, r.headers(), r.firstFailedAt(), r.createdAt(), r.updatedAt(),
                 owningTeam, auditTimeline);
     }
 }

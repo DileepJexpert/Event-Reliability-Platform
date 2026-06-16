@@ -15,6 +15,7 @@ import com.eventreliability.domain.MessageState;
 import com.eventreliability.config.TopicNames;
 import com.eventreliability.observability.PlatformMetrics;
 import com.eventreliability.routing.ParkingService;
+import com.eventreliability.security.PayloadProtectionService;
 import com.eventreliability.state.StateService;
 import com.eventreliability.streams.ReadModels;
 
@@ -43,10 +44,12 @@ public class ReplayService {
     private final AuditService auditService;
     private final ParkingService parkingService;
     private final PlatformMetrics metrics;
+    private final PayloadProtectionService payloadProtection;
 
     public ReplayService(ReliabilityProperties props, TopicNames topics, KafkaPublisher publisher,
                          StateService stateService, ReadModels readModels, AuditService auditService,
-                         ParkingService parkingService, PlatformMetrics metrics) {
+                         ParkingService parkingService, PlatformMetrics metrics,
+                         PayloadProtectionService payloadProtection) {
         this.props = props;
         this.topics = topics;
         this.publisher = publisher;
@@ -55,6 +58,7 @@ public class ReplayService {
         this.auditService = auditService;
         this.parkingService = parkingService;
         this.metrics = metrics;
+        this.payloadProtection = payloadProtection;
     }
 
     public void replaySingle(String correlationId, String actor, String reason,
@@ -111,7 +115,7 @@ public class ReplayService {
             log.warn("Quarantine command for unknown correlation id {}", correlationId);
             return;
         }
-        parkingService.quarantineByUser(record, decode(record.payloadBase64()),
+        parkingService.quarantineByUser(record, payloadProtection.decryptForReplay(record.payloadBase64()),
                 FailureHeaders.fromMap(record.headers()), actor,
                 reason != null ? reason : "manually quarantined");
     }
@@ -131,7 +135,7 @@ public class ReplayService {
         String key = FailureHeaders.getString(out, FailureHeaders.ORIGINAL_KEY);
 
         boolean edited = payloadOverrideBase64 != null && !payloadOverrideBase64.isBlank();
-        byte[] payload = edited ? decode(payloadOverrideBase64) : decode(record.payloadBase64());
+        byte[] payload = edited ? decode(payloadOverrideBase64) : payloadProtection.decryptForReplay(record.payloadBase64());
         publisher.send(new ProducerRecord<>(destination, null, key, payload, out));
         stateService.put(record.toBuilder().state(MessageState.REPLAYED).lastActor(actor).build());
         auditService.userAction(record.correlationId(), record.state(), MessageState.REPLAYED,

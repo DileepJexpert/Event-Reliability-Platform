@@ -1,13 +1,13 @@
 package com.eventreliability.ingestion;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.eventreliability.domain.FailureHeaders;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.RootCauseSignature;
+import com.eventreliability.security.PayloadProtectionService;
 
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.Headers;
@@ -21,6 +21,12 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class FailureRecordFactory {
+
+    private final PayloadProtectionService payloadProtection;
+
+    public FailureRecordFactory(PayloadProtectionService payloadProtection) {
+        this.payloadProtection = payloadProtection;
+    }
 
     public FailureRecord.Builder fromMessage(String correlationId, Headers h, byte[] payload) {
         long now = System.currentTimeMillis();
@@ -39,7 +45,7 @@ public class FailureRecordFactory {
                 .sourceApp(FailureHeaders.getString(h, FailureHeaders.SOURCE_APP))
                 .schemaVersion(FailureHeaders.getString(h, FailureHeaders.SCHEMA_VERSION))
                 .payloadHash(FailureHeaders.getString(h, FailureHeaders.PAYLOAD_HASH))
-                .payloadBase64(payload == null ? null : Base64.getEncoder().encodeToString(payload))
+                .payloadBase64(payloadProtection.encryptForStorage(payload))
                 .headers(headerMap(h));
         b.rootCauseSignature(RootCauseSignature.of(
                 FailureHeaders.getString(h, FailureHeaders.EXCEPTION_CLASS),

@@ -13,6 +13,7 @@ import com.eventreliability.domain.FailureClassification;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.domain.MessageState;
 import com.eventreliability.ownership.OwnershipService;
+import com.eventreliability.security.PayloadProtectionService;
 import com.eventreliability.streams.ReadModels;
 
 import org.springframework.stereotype.Service;
@@ -29,10 +30,13 @@ public class FailureQueryService {
 
     private final ReadModels readModels;
     private final OwnershipService ownership;
+    private final PayloadProtectionService payloadProtection;
 
-    public FailureQueryService(ReadModels readModels, OwnershipService ownership) {
+    public FailureQueryService(ReadModels readModels, OwnershipService ownership,
+                               PayloadProtectionService payloadProtection) {
         this.readModels = readModels;
         this.ownership = ownership;
+        this.payloadProtection = payloadProtection;
     }
 
     public PageDto<FailureSummaryDto> list(MessageState status, String topic, String dlqTopic,
@@ -91,7 +95,8 @@ public class FailureQueryService {
     public FailureDetailDto detail(String correlationId) {
         FailureRecord record = readModels.failure(correlationId)
                 .orElseThrow(() -> new NotFoundException("No failure found for correlation id " + correlationId));
+        String maskedPayload = payloadProtection.maskForDisplay(record.payloadBase64());
         return FailureMapper.toDetail(record, readModels.auditTimeline(correlationId).events(),
-                ownership.teamFor(record));
+                ownership.teamFor(record), maskedPayload);
     }
 }

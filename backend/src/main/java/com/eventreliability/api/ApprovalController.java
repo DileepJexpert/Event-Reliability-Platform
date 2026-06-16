@@ -13,6 +13,7 @@ import com.eventreliability.domain.ControlRequest;
 import com.eventreliability.domain.FailureRecord;
 import com.eventreliability.query.NotFoundException;
 import com.eventreliability.security.CurrentUser;
+import com.eventreliability.security.PayloadProtectionService;
 import com.eventreliability.state.StateService;
 import com.eventreliability.streams.ReadModels;
 
@@ -39,11 +40,14 @@ public class ApprovalController {
     private final ReadModels readModels;
     private final ApprovalService approvalService;
     private final StateService stateService;
+    private final PayloadProtectionService payloadProtection;
 
-    public ApprovalController(ReadModels readModels, ApprovalService approvalService, StateService stateService) {
+    public ApprovalController(ReadModels readModels, ApprovalService approvalService,
+                              StateService stateService, PayloadProtectionService payloadProtection) {
         this.readModels = readModels;
         this.approvalService = approvalService;
         this.stateService = stateService;
+        this.payloadProtection = payloadProtection;
     }
 
     /**
@@ -149,13 +153,14 @@ public class ApprovalController {
         if (r.correlationId() != null) {
             FailureRecord rec = stateService.find(r.correlationId()).orElse(null);
             if (rec != null) {
-                originalPayload = rec.payloadBase64();
+                originalPayload = payloadProtection.maskForDisplay(rec.payloadBase64());
                 exceptionClass = rec.exceptionClass();
                 originalTopic = rec.originalTopic();
             }
         }
+        String maskedOverride = payloadProtection.maskForDisplay(r.payloadOverrideBase64());
         return new ApprovalDto(r.requestId(), r.type().name(), r.correlationId(), r.incidentId(),
-                r.maker(), r.makerReason(), r.targetTopic(), r.payloadEdited(), r.payloadOverrideBase64(),
+                r.maker(), r.makerReason(), r.targetTopic(), r.payloadEdited(), maskedOverride,
                 originalPayload, exceptionClass, originalTopic, r.status().name(), r.createdAt(),
                 r.checker(), r.checkerReason(), r.decidedAt(), r.revision());
     }

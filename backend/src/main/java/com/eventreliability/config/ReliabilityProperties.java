@@ -34,7 +34,8 @@ public record ReliabilityProperties(
         @DefaultValue Headers headers,
         @DefaultValue Ingest ingest,
         @DefaultValue Ownership ownership,
-        @DefaultValue CircuitBreaker circuitBreaker
+        @DefaultValue CircuitBreaker circuitBreaker,
+        @DefaultValue PayloadProtection payloadProtection
 ) {
 
     /**
@@ -226,4 +227,32 @@ public record ReliabilityProperties(
             @DefaultValue("2") int retries,
             @DefaultValue("PT2S") Duration retryInterval
     ) {}
+
+    /**
+     * Payload protection: AES-256-GCM encryption at rest + regex-based PII masking for API display.
+     * Encryption guards payload confidentiality in the compacted state topic; PII masking ensures the
+     * Flutter console never shows raw sensitive data (SSN, credit card, IBAN, email) even when payloads
+     * are inspected for triage. Replay always re-drives the original unmasked payload.
+     */
+    public record PayloadProtection(
+            @DefaultValue("false") boolean encryptionEnabled,
+            /** AES-256 key, base64-encoded (32 raw bytes). Required when encryption is enabled. */
+            String encryptionKey,
+            @DefaultValue("true") boolean maskingEnabled,
+            @DefaultValue List<PiiPattern> patterns
+    ) {
+        public PayloadProtection {
+            patterns = patterns == null || patterns.isEmpty() ? defaultPatterns() : List.copyOf(patterns);
+        }
+
+        public record PiiPattern(String name, String regex) {}
+
+        private static List<PiiPattern> defaultPatterns() {
+            return List.of(
+                    new PiiPattern("ssn", "\\b\\d{3}-\\d{2}-\\d{4}\\b"),
+                    new PiiPattern("credit-card", "\\b(?:\\d{4}[- ]?){3}\\d{4}\\b"),
+                    new PiiPattern("iban", "\\b[A-Z]{2}\\d{2}[A-Z0-9]{11,30}\\b"),
+                    new PiiPattern("email", "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"));
+        }
+    }
 }

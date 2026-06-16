@@ -19,6 +19,11 @@ reliability:
   notifier:
     enabled: true
     channel: log
+  # PII masking on during demo — payloads containing SSN, credit card, IBAN or email addresses are
+  # masked with [MASKED:<type>] when viewed in the console. Replay re-drives the original unmasked
+  # payload. Add encryption-enabled + encryption-key for AES-256-GCM at-rest encryption.
+  payload-protection:
+    masking-enabled: true
   # Example team ownership so failures are attributed (the Team column / detail) and incidents are
   # routed to a team. Matches by source app / exact topic / topic prefix; first match wins, else
   # `default-team`. Send via the HTTP intake or sample with these sources to see attribution.

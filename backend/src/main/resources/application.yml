@@ -106,6 +106,13 @@ reliability:
     require-distinct-checker: ${RELIABILITY_REQUIRE_DISTINCT_CHECKER:true}
     # Topics a replay may be redirected to besides the original (e.g. a fix/replay topic). Comma list.
     # allowed-topics: payments.retry,orders.retry
+  # Payload protection: AES-256-GCM encryption at rest + regex PII masking for API display (§ security).
+  # Encryption is opt-in; masking is on by default with patterns for SSN, credit card, IBAN, email.
+  # Override patterns in YAML to add bank-specific formats (e.g. internal account numbers).
+  payload-protection:
+    encryption-enabled: ${RELIABILITY_ENCRYPTION_ENABLED:false}
+    encryption-key: ${RELIABILITY_ENCRYPTION_KEY:}
+    masking-enabled: ${RELIABILITY_MASKING_ENABLED:true}
 
 logging:
   level:
