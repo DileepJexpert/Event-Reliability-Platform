@@ -231,6 +231,35 @@ class _FailureDetailScreenState extends State<FailureDetailScreen> {
           ),
         ],
         const SizedBox(height: 8),
+        if (d.payloadBase64 != null && d.payloadBase64!.isNotEmpty) ...[
+          Row(children: [
+            Text('Payload', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: const [
+                Icon(Icons.shield, size: 14, color: Colors.deepOrange),
+                SizedBox(width: 4),
+                Text('PII Protected', style: TextStyle(fontSize: 11, color: Colors.deepOrange)),
+              ]),
+            ),
+          ]),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(10),
+            color: Colors.black12,
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: SingleChildScrollView(
+              child: Text(_decode(d.payloadBase64),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
         Text('Audit timeline', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         ..._detail!.auditTimeline.map(_auditTile),

@@ -230,6 +230,38 @@ done
 `[ALERT] INCIDENT … (owner: Payments) …`. To actually POST to Slack/Teams, add a `channel: <webhook>`
 to the matching rule in `backend/src/main/resources/application-demo.yml` and restart.
 
+### 7e. PII masking (payload protection)
+
+Payloads containing PII (SSN, credit card, IBAN, email) are automatically masked in the API and
+Flutter console. Replay re-drives the **original unmasked** payload.
+
+```bash
+# Send a failure whose payload contains PII:
+curl -X POST http://localhost:8080/api/failures -H "Content-Type: application/json" -d '{
+  "source":"customer.events","sourceApp":"onboarding-svc",
+  "exceptionClass":"com.bank.ValidationException","exceptionMessage":"KYC check failed",
+  "payload":"{\"name\":\"Jane Doe\",\"ssn\":\"123-45-6789\",\"email\":\"jane@bank.com\",\"card\":\"4111-1111-1111-1111\",\"iban\":\"GB29NWBK60161331926819\"}"}'
+```
+
+**Verify:** open the failure in the console — the **Payload** section shows the data with PII replaced:
+- `123-45-6789` → `[MASKED:ssn]`
+- `jane@bank.com` → `[MASKED:email]`
+- `4111-1111-1111-1111` → `[MASKED:credit-card]`
+- `GB29NWBK60161331926819` → `[MASKED:iban]`
+
+Non-PII fields (`name`, `note`) appear unchanged. The "PII Protected" badge is shown next to the
+Payload header.
+
+REST equivalent:
+```bash
+curl http://localhost:8080/api/failures/<CORRELATION_ID> -H "X-Actor: alice" | python3 -m json.tool
+# payloadBase64 → base64-decode it to see the masked JSON
+```
+
+**Encryption at rest** (production): set `RELIABILITY_ENCRYPTION_KEY` to a base64-encoded 256-bit key
+and `RELIABILITY_ENCRYPTION_ENABLED=true`. Payloads are AES-256-GCM encrypted in the state topic;
+the API still returns PII-masked text. Generate a key: `openssl rand -base64 32`.
+
 ---
 
 ## Reset
