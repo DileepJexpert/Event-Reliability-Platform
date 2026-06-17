@@ -124,6 +124,17 @@ public class PayloadProtectionService {
         return Base64.getEncoder().encodeToString(masked.getBytes(StandardCharsets.UTF_8));
     }
 
+    /** Apply PII masking to an arbitrary plain-text string (e.g. the assistant's RAG context). */
+    public String maskText(String text) {
+        if (text == null) {
+            return null;
+        }
+        if (!maskingEnabled || maskRules.isEmpty()) {
+            return text;
+        }
+        return applyMaskRules(text);
+    }
+
     String applyMaskRules(String text) {
         String result = text;
         for (MaskRule rule : maskRules) {

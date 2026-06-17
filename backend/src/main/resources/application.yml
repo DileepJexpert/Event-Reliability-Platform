@@ -113,6 +113,15 @@ reliability:
     encryption-enabled: ${RELIABILITY_ENCRYPTION_ENABLED:false}
     encryption-key: ${RELIABILITY_ENCRYPTION_KEY:}
     masking-enabled: ${RELIABILITY_MASKING_ENABLED:true}
+  # GenAI operations assistant (§ intelligence). Points at a self-hosted, OpenAI-compatible chat model
+  # so failed-event data never leaves the bank's network. Disabled by default; the context fed to the
+  # model is always PII-masked. Example: RELIABILITY_ASSISTANT_URL=http://llm.internal:8000/v1
+  assistant:
+    enabled: ${RELIABILITY_ASSISTANT_ENABLED:false}
+    base-url: ${RELIABILITY_ASSISTANT_URL:}
+    model: ${RELIABILITY_ASSISTANT_MODEL:brod-assistant}
+    api-key: ${RELIABILITY_ASSISTANT_API_KEY:}
+    timeout: 30s
 
 logging:
   level:

@@ -35,7 +35,8 @@ public record ReliabilityProperties(
         @DefaultValue Ingest ingest,
         @DefaultValue Ownership ownership,
         @DefaultValue CircuitBreaker circuitBreaker,
-        @DefaultValue PayloadProtection payloadProtection
+        @DefaultValue PayloadProtection payloadProtection,
+        @DefaultValue Assistant assistant
 ) {
 
     /**
@@ -255,4 +256,21 @@ public record ReliabilityProperties(
                     new PiiPattern("email", "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"));
         }
     }
+
+    /**
+     * GenAI operations assistant (a "Davis CoPilot" for failures). Points at a self-hosted,
+     * OpenAI-compatible chat-completions endpoint (vLLM/TGI/Ollama/internal gateway) so failed-event
+     * data never leaves the bank's network. The assistant is grounded in Brod's own read models (RAG),
+     * answers are cited, and the context is PII-masked before it ever reaches the model. Read-only — it
+     * answers and drafts, it never takes actions.
+     */
+    public record Assistant(
+            @DefaultValue("false") boolean enabled,
+            /** Base URL of the OpenAI-compatible API, e.g. {@code http://llm.internal.bank:8000/v1}. */
+            String baseUrl,
+            @DefaultValue("brod-assistant") String model,
+            /** Optional bearer token for an internal LLM gateway; omit for an open in-cluster endpoint. */
+            String apiKey,
+            @DefaultValue("PT30S") Duration timeout
+    ) {}
 }
