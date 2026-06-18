@@ -130,6 +130,14 @@ reliability:
     amount-fields: ${RELIABILITY_EXPOSURE_AMOUNT_FIELDS:amount,transactionAmount,amt,value}
     currency-fields: ${RELIABILITY_EXPOSURE_CURRENCY_FIELDS:currency,ccy,currencyCode}
     default-currency: ${RELIABILITY_EXPOSURE_DEFAULT_CURRENCY:UNKNOWN}
+  # Adaptive anomaly detection (§16). Complements the fixed incident threshold: each root-cause / topic
+  # series is compared against its OWN recent baseline (mean + sensitivity·stddev over the lookback), so
+  # spikes are caught relative to normal — and brand-new signatures are caught as novelty.
+  anomaly:
+    bucket: ${RELIABILITY_ANOMALY_BUCKET:5m}
+    lookback: ${RELIABILITY_ANOMALY_LOOKBACK:3h}
+    min-count: ${RELIABILITY_ANOMALY_MIN_COUNT:5}
+    sensitivity: ${RELIABILITY_ANOMALY_SENSITIVITY:3.0}
 
 logging:
   level:

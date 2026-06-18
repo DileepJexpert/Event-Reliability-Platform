@@ -110,7 +110,7 @@ class PayloadProtectionServiceTest {
     private static PayloadProtectionService service(boolean encrypt, String key, boolean mask) {
         ReliabilityProperties props = new ReliabilityProperties(
                 "reliability.", null, null, null, null, null, null, null, null, null, null,
-                new ReliabilityProperties.PayloadProtection(encrypt, key, mask, List.of()), null, null);
+                new ReliabilityProperties.PayloadProtection(encrypt, key, mask, List.of()), null, null, null);
         return new PayloadProtectionService(props);
     }
 }

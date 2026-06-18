@@ -98,7 +98,7 @@ class AssistantServiceTest {
     private static PayloadProtectionService maskingService() {
         ReliabilityProperties props = new ReliabilityProperties(
                 "reliability.", null, null, null, null, null, null, null, null, null, null,
-                new ReliabilityProperties.PayloadProtection(false, null, true, List.of()), null, null);
+                new ReliabilityProperties.PayloadProtection(false, null, true, List.of()), null, null, null);
         return new PayloadProtectionService(props);
     }
 }

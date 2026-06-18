@@ -37,7 +37,8 @@ public record ReliabilityProperties(
         @DefaultValue CircuitBreaker circuitBreaker,
         @DefaultValue PayloadProtection payloadProtection,
         @DefaultValue Assistant assistant,
-        @DefaultValue Exposure exposure
+        @DefaultValue Exposure exposure,
+        @DefaultValue Anomaly anomaly
 ) {
 
     /**
@@ -297,4 +298,23 @@ public record ReliabilityProperties(
                     ? "UNKNOWN" : defaultCurrency.trim();
         }
     }
+
+    /**
+     * Adaptive anomaly detection (§16). Complements the fixed incident threshold with per-series
+     * baselining: the failure count in the latest {@link #bucket} is flagged when it exceeds
+     * {@code mean + sensitivity·stddev} of the preceding buckets over {@link #lookback} (and at least
+     * {@link #minCount} absolute). This catches spikes relative to each series' own normal — and a
+     * brand-new root-cause appearing in volume — where one global threshold would miss them.
+     */
+    public record Anomaly(
+            @DefaultValue("true") boolean enabled,
+            /** Size of each counting bucket. */
+            @DefaultValue("PT5M") Duration bucket,
+            /** How far back the baseline is built (must be > 2·bucket). */
+            @DefaultValue("PT3H") Duration lookback,
+            /** Minimum count in the latest bucket before a series can be flagged (noise floor). */
+            @DefaultValue("5") int minCount,
+            /** Std-devs above the baseline mean that count as anomalous. */
+            @DefaultValue("3.0") double sensitivity
+    ) {}
 }
