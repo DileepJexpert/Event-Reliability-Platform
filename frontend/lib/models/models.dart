@@ -410,3 +410,29 @@ class DailyCount {
   factory DailyCount.fromJson(Map<String, dynamic> j) =>
       DailyCount((j['date'] ?? '') as String, (j['count'] ?? 0) as int);
 }
+
+/// The operations assistant's reply ({@code POST /api/assistant/ask}). [citations] are the
+/// incident/failure ids the model was grounded in; [grounded] is false when the assistant is not
+/// configured or had no context.
+class AssistantAnswer {
+  final String answer;
+  final List<String> citations;
+  final int contextSize;
+  final bool grounded;
+
+  const AssistantAnswer({
+    this.answer = '',
+    this.citations = const [],
+    this.contextSize = 0,
+    this.grounded = false,
+  });
+
+  factory AssistantAnswer.fromJson(Map<String, dynamic> j) => AssistantAnswer(
+        answer: (j['answer'] ?? '') as String,
+        citations: ((j['citations'] as List<dynamic>?) ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+        contextSize: (j['contextSize'] ?? 0) as int,
+        grounded: (j['grounded'] ?? false) as bool,
+      );
+}

@@ -262,6 +262,27 @@ curl http://localhost:8080/api/failures/<CORRELATION_ID> -H "X-Actor: alice" | p
 and `RELIABILITY_ENCRYPTION_ENABLED=true`. Payloads are AES-256-GCM encrypted in the state topic;
 the API still returns PII-masked text. Generate a key: `openssl rand -base64 32`.
 
+### 7f. Ask Brod (AI operations assistant)
+The **Ask Brod** menu is a **read-only** assistant: ask natural-language questions and get cited
+answers grounded in the current incidents/failures (PII-masked before they reach the model). It needs a
+self-hosted, OpenAI-compatible model endpoint, so it's off by default.
+
+Enable it (point at your in-network model), then restart the backend:
+```bash
+export RELIABILITY_ASSISTANT_ENABLED=true
+export RELIABILITY_ASSISTANT_URL=http://localhost:8000/v1   # your vLLM/TGI/Ollama/gateway
+export RELIABILITY_ASSISTANT_MODEL=your-model
+# optional, for an internal gateway: export RELIABILITY_ASSISTANT_API_KEY=...
+```
+Ask in the console (**Ask Brod** tab) or over REST:
+```bash
+curl -X POST http://localhost:8080/api/assistant/ask -H "Content-Type: application/json" \
+  -H "X-Actor: alice" -d '{"question":"why are payments failing?"}'
+```
+**Verify:** the answer cites incident/failure ids, `grounded` is `true` and `contextSize` > 0. With the
+assistant disabled you get a friendly "not configured" reply (`grounded:false`). Every query is audited
+(acting user + question). The model only ever sees **PII-masked** context.
+
 ---
 
 ## Reset

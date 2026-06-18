@@ -7,6 +7,7 @@ import '../services/auth_service.dart';
 import '../services/event_stream.dart';
 import '../state/dashboard_state.dart';
 import 'approvals_screen.dart';
+import 'assistant_screen.dart';
 import 'audit_search_screen.dart';
 import 'dashboard_screen.dart';
 import 'failures_screen.dart';
@@ -33,6 +34,7 @@ class _HomeShellState extends State<HomeShell> {
     FailuresScreen(),
     IncidentsScreen(),
     TrendsScreen(),
+    AssistantScreen(),
     ApprovalsScreen(),
     AuditSearchScreen(),
   ];
@@ -141,6 +143,7 @@ class _HomeShellState extends State<HomeShell> {
                 NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Failures')),
                 NavigationRailDestination(icon: Icon(Icons.warning_amber), label: Text('Incidents')),
                 NavigationRailDestination(icon: Icon(Icons.insights), label: Text('Trends')),
+                NavigationRailDestination(icon: Icon(Icons.auto_awesome), label: Text('Ask Brod')),
                 NavigationRailDestination(icon: Icon(Icons.approval), label: Text('Approvals')),
                 NavigationRailDestination(icon: Icon(Icons.history), label: Text('Audit')),
               ],

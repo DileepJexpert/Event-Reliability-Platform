@@ -85,6 +85,18 @@ class ApiClient {
     return Trends.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Ask the read-only operations assistant a natural-language question (§ intelligence). The backend
+  /// grounds a self-hosted model in the current incidents/failures (PII-masked) and returns a cited answer.
+  Future<AssistantAnswer> askAssistant(String question) async {
+    final res = await _http.post(
+      Uri.parse('$_base/api/assistant/ask'),
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode({'question': question}),
+    );
+    _check(res);
+    return AssistantAnswer.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   // ----- maker actions (raise requests; 4-eyes) -----
 
   Future<void> replay(String correlationId, {String? reason, String? targetTopic, String? payloadBase64}) =>
