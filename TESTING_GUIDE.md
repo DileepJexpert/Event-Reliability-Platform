@@ -139,6 +139,26 @@ curl http://localhost:8080/api/trends
 
 ---
 
+## 4a. Exposure (value at risk)
+
+**Purpose:** How much money is tied up in stuck (un-recovered) failures — the figure a manager asks
+for. **Read-only:** the platform extracts an amount + currency from each stuck failure's JSON payload and
+sums it by currency / topic / team, plus the biggest single exposures. No raw payloads are shown.
+
+**Replicate:**
+```bash
+curl -X POST http://localhost:8080/api/failures -H "Content-Type: application/json" \
+  -d '{"source":"payments.events","exceptionClass":"com.bank.TimeoutException","payload":"{\"amount\":1000.50,\"currency\":\"USD\"}"}'
+curl -X POST http://localhost:8080/api/failures -H "Content-Type: application/json" \
+  -d '{"source":"orders.events","exceptionClass":"com.bank.SchemaException","payload":"{\"transactionAmount\":\"5000.00\",\"currency\":\"EUR\"}"}'
+```
+
+**Verify:** open **Exposure** → headline cards show `USD 1,000.50` and `EUR 5,000.00` at risk, with
+breakdowns by topic/team and a "biggest stuck exposures" table. REST: `curl http://localhost:8080/api/exposure`.
+Point `reliability.exposure.amount-fields` / `currency-fields` at the field names your events use.
+
+---
+
 ## 5. Approvals (maker-checker / 4-eyes)
 
 **Purpose:** Every mutating action (replay / bulk-replay / quarantine) is a **request** a *different*

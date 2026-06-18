@@ -10,6 +10,7 @@ import 'approvals_screen.dart';
 import 'assistant_screen.dart';
 import 'audit_search_screen.dart';
 import 'dashboard_screen.dart';
+import 'exposure_screen.dart';
 import 'failures_screen.dart';
 import 'incidents_screen.dart';
 import 'trends_screen.dart';
@@ -34,6 +35,7 @@ class _HomeShellState extends State<HomeShell> {
     FailuresScreen(),
     IncidentsScreen(),
     TrendsScreen(),
+    ExposureScreen(),
     AssistantScreen(),
     ApprovalsScreen(),
     AuditSearchScreen(),
@@ -143,6 +145,7 @@ class _HomeShellState extends State<HomeShell> {
                 NavigationRailDestination(icon: Icon(Icons.list_alt), label: Text('Failures')),
                 NavigationRailDestination(icon: Icon(Icons.warning_amber), label: Text('Incidents')),
                 NavigationRailDestination(icon: Icon(Icons.insights), label: Text('Trends')),
+                NavigationRailDestination(icon: Icon(Icons.account_balance), label: Text('Exposure')),
                 NavigationRailDestination(icon: Icon(Icons.auto_awesome), label: Text('Ask Brod')),
                 NavigationRailDestination(icon: Icon(Icons.approval), label: Text('Approvals')),
                 NavigationRailDestination(icon: Icon(Icons.history), label: Text('Audit')),

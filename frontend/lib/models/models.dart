@@ -436,3 +436,98 @@ class AssistantAnswer {
         grounded: (j['grounded'] ?? false) as bool,
       );
 }
+
+/// Financial exposure / "value at risk" ({@code GET /api/exposure}) — money tied up in stuck failures.
+class Exposure {
+  final Map<String, double> atRiskByCurrency;
+  final int atRiskCount;
+  final int withoutAmount;
+  final int totalConsidered;
+  final List<ExposureGroup> byTeam;
+  final List<ExposureGroup> byTopic;
+  final List<ExposureItem> topExposures;
+  final int? oldestAtRiskAt;
+  final int generatedAt;
+
+  const Exposure({
+    this.atRiskByCurrency = const {},
+    this.atRiskCount = 0,
+    this.withoutAmount = 0,
+    this.totalConsidered = 0,
+    this.byTeam = const [],
+    this.byTopic = const [],
+    this.topExposures = const [],
+    this.oldestAtRiskAt,
+    this.generatedAt = 0,
+  });
+
+  factory Exposure.fromJson(Map<String, dynamic> j) => Exposure(
+        atRiskByCurrency: doubleMap(j['atRiskByCurrency']),
+        atRiskCount: (j['atRiskCount'] ?? 0) as int,
+        withoutAmount: (j['withoutAmount'] ?? 0) as int,
+        totalConsidered: (j['totalConsidered'] ?? 0) as int,
+        byTeam: _groups(j['byTeam']),
+        byTopic: _groups(j['byTopic']),
+        topExposures: ((j['topExposures'] as List<dynamic>?) ?? const [])
+            .map((e) => ExposureItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        oldestAtRiskAt: (j['oldestAtRiskAt'] as num?)?.toInt(),
+        generatedAt: (j['generatedAt'] ?? 0) as int,
+      );
+
+  static Map<String, double> doubleMap(dynamic v) {
+    final m = <String, double>{};
+    if (v is Map) {
+      v.forEach((k, val) => m[k.toString()] = (val as num).toDouble());
+    }
+    return m;
+  }
+
+  static List<ExposureGroup> _groups(dynamic v) => ((v as List<dynamic>?) ?? const [])
+      .map((e) => ExposureGroup.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+/// Exposure for one grouping (a team or topic): count of stuck failures + amount per currency.
+class ExposureGroup {
+  final String name;
+  final int count;
+  final Map<String, double> amountByCurrency;
+  const ExposureGroup(this.name, this.count, this.amountByCurrency);
+  factory ExposureGroup.fromJson(Map<String, dynamic> j) => ExposureGroup(
+        (j['name'] ?? '') as String,
+        (j['count'] ?? 0) as int,
+        Exposure.doubleMap(j['amountByCurrency']),
+      );
+}
+
+/// A single high-value stuck failure, for the "biggest exposures" table.
+class ExposureItem {
+  final String correlationId;
+  final double amount;
+  final String currency;
+  final String team;
+  final String topic;
+  final String? state;
+  final int? firstFailedAt;
+
+  const ExposureItem({
+    required this.correlationId,
+    required this.amount,
+    required this.currency,
+    required this.team,
+    required this.topic,
+    this.state,
+    this.firstFailedAt,
+  });
+
+  factory ExposureItem.fromJson(Map<String, dynamic> j) => ExposureItem(
+        correlationId: (j['correlationId'] ?? '') as String,
+        amount: ((j['amount'] ?? 0) as num).toDouble(),
+        currency: (j['currency'] ?? '') as String,
+        team: (j['team'] ?? '') as String,
+        topic: (j['topic'] ?? '') as String,
+        state: j['state'] as String?,
+        firstFailedAt: (j['firstFailedAt'] as num?)?.toInt(),
+      );
+}
