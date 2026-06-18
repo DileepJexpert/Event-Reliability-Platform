@@ -122,6 +122,14 @@ reliability:
     model: ${RELIABILITY_ASSISTANT_MODEL:brod-assistant}
     api-key: ${RELIABILITY_ASSISTANT_API_KEY:}
     timeout: 30s
+  # Financial exposure / "value at risk" (§16). Read-only: sums the business amount of stuck
+  # (un-recovered) failures by extracting a numeric amount + currency from each JSON payload. Point the
+  # field lists at the names your events use (comma-separated, dot-paths allowed, first match wins). Only
+  # aggregated totals are returned — raw payloads are never exposed by this endpoint.
+  exposure:
+    amount-fields: ${RELIABILITY_EXPOSURE_AMOUNT_FIELDS:amount,transactionAmount,amt,value}
+    currency-fields: ${RELIABILITY_EXPOSURE_CURRENCY_FIELDS:currency,ccy,currencyCode}
+    default-currency: ${RELIABILITY_EXPOSURE_DEFAULT_CURRENCY:UNKNOWN}
 
 logging:
   level:

@@ -36,7 +36,8 @@ public record ReliabilityProperties(
         @DefaultValue Ownership ownership,
         @DefaultValue CircuitBreaker circuitBreaker,
         @DefaultValue PayloadProtection payloadProtection,
-        @DefaultValue Assistant assistant
+        @DefaultValue Assistant assistant,
+        @DefaultValue Exposure exposure
 ) {
 
     /**
@@ -273,4 +274,27 @@ public record ReliabilityProperties(
             String apiKey,
             @DefaultValue("PT30S") Duration timeout
     ) {}
+
+    /**
+     * Financial exposure / "value at risk" (§ intelligence). Read-only: the exposure endpoint extracts a
+     * numeric amount (and currency) from each stuck failure's JSON payload and sums it, so a bank can see
+     * how much money is tied up in un-recovered events. Only aggregated totals are returned — never the
+     * raw payload. Point {@link #amountFields}/{@link #currencyFields} at the field names your events use
+     * (dot-paths supported, first match wins).
+     */
+    public record Exposure(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue({"amount", "transactionAmount", "amt", "value"}) List<String> amountFields,
+            @DefaultValue({"currency", "ccy", "currencyCode"}) List<String> currencyFields,
+            @DefaultValue("UNKNOWN") String defaultCurrency
+    ) {
+        public Exposure {
+            amountFields = (amountFields == null || amountFields.isEmpty())
+                    ? List.of("amount", "transactionAmount", "amt", "value") : List.copyOf(amountFields);
+            currencyFields = (currencyFields == null || currencyFields.isEmpty())
+                    ? List.of("currency", "ccy", "currencyCode") : List.copyOf(currencyFields);
+            defaultCurrency = (defaultCurrency == null || defaultCurrency.isBlank())
+                    ? "UNKNOWN" : defaultCurrency.trim();
+        }
+    }
 }
