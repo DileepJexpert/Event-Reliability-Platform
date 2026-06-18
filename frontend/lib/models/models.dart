@@ -531,3 +531,61 @@ class ExposureItem {
         firstFailedAt: (j['firstFailedAt'] as num?)?.toInt(),
       );
 }
+
+/// Adaptive anomaly detection report ({@code GET /api/anomalies}).
+class AnomalyReport {
+  final List<Anomaly> anomalies;
+  final int bucketMillis;
+  final int lookbackMillis;
+  final double sensitivity;
+  final int generatedAt;
+
+  const AnomalyReport({
+    this.anomalies = const [],
+    this.bucketMillis = 0,
+    this.lookbackMillis = 0,
+    this.sensitivity = 0,
+    this.generatedAt = 0,
+  });
+
+  factory AnomalyReport.fromJson(Map<String, dynamic> j) => AnomalyReport(
+        anomalies: ((j['anomalies'] as List<dynamic>?) ?? const [])
+            .map((e) => Anomaly.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        bucketMillis: (j['bucketMillis'] ?? 0) as int,
+        lookbackMillis: (j['lookbackMillis'] ?? 0) as int,
+        sensitivity: ((j['sensitivity'] ?? 0) as num).toDouble(),
+        generatedAt: (j['generatedAt'] ?? 0) as int,
+      );
+}
+
+/// One anomalous series: the latest-bucket count against its own baseline.
+class Anomaly {
+  final String dimension;
+  final String key;
+  final int recentCount;
+  final double baselineMean;
+  final double expected;
+  final double score;
+  final String? sampleCorrelationId;
+
+  const Anomaly({
+    required this.dimension,
+    required this.key,
+    required this.recentCount,
+    required this.baselineMean,
+    required this.expected,
+    required this.score,
+    this.sampleCorrelationId,
+  });
+
+  factory Anomaly.fromJson(Map<String, dynamic> j) => Anomaly(
+        dimension: (j['dimension'] ?? '') as String,
+        key: (j['key'] ?? '') as String,
+        recentCount: (j['recentCount'] ?? 0) as int,
+        baselineMean: ((j['baselineMean'] ?? 0) as num).toDouble(),
+        expected: ((j['expected'] ?? 0) as num).toDouble(),
+        score: ((j['score'] ?? 0) as num).toDouble(),
+        sampleCorrelationId: j['sampleCorrelationId'] as String?,
+      );
+}

@@ -120,6 +120,26 @@ curl -X POST http://localhost:8080/api/incidents/<INCIDENT_ID>/bulk-replay \
 
 ---
 
+## 3b. Anomalies (adaptive detection)
+
+**Purpose:** Catch failure-rate spikes **relative to each series' own baseline** — not a fixed global
+threshold. An off-peak spike on a normally-quiet topic is caught, and a brand-new root cause appearing
+in volume is flagged as **novelty**.
+
+**Replicate** (a brand-new root cause appearing in volume — novelty against an empty baseline):
+```bash
+for i in $(seq 1 6); do
+  curl -s -X POST http://localhost:8080/api/failures -H "Content-Type: application/json" \
+    -d '{"source":"ledger.events","exceptionClass":"com.bank.NovelException","exceptionMessage":"new failure mode"}' >/dev/null
+done
+```
+
+**Verify:** open **Anomalies** → an entry for `com.bank.NovelException` / `ledger.events` with its recent
+count, baseline and σ score. REST: `curl http://localhost:8080/api/anomalies`. Tune with
+`reliability.anomaly.bucket` / `lookback` / `min-count` / `sensitivity`.
+
+---
+
 ## 4. Trends
 
 **Purpose:** Analytics over the current failure set — totals, resolution rate, MTTR, a 14-day daily

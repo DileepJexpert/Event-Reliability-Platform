@@ -92,6 +92,13 @@ class ApiClient {
     return Exposure.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Adaptive anomaly detection — series spiking against their own baseline (§16).
+  Future<AnomalyReport> getAnomalies() async {
+    final res = await _http.get(Uri.parse('$_base/api/anomalies'), headers: _headers);
+    _check(res);
+    return AnomalyReport.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   /// Ask the read-only operations assistant a natural-language question (§ intelligence). The backend
   /// grounds a self-hosted model in the current incidents/failures (PII-masked) and returns a cited answer.
   Future<AssistantAnswer> askAssistant(String question) async {
