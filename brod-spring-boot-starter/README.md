@@ -57,8 +57,34 @@ class PaymentConsumer {
 }
 ```
 
-The default `InMemoryIdempotencyStore` is process-local — for production, provide an `IdempotencyStore`
-bean backed by a shared store (Postgres/Redis/Aerospike) so dedup spans instances and restarts.
+The default `InMemoryIdempotencyStore` is process-local. For production use the built-in
+**Aerospike-backed** store, so dedup spans instances and restarts with sub-millisecond lookups and a
+self-expiring dedup window:
+
+```xml
+<!-- add alongside the starter -->
+<dependency>
+  <groupId>com.aerospike</groupId>
+  <artifactId>aerospike-client-jdk21</artifactId>
+  <version>9.0.5</version>
+</dependency>
+```
+
+```yaml
+brod:
+  idempotency:
+    store: aerospike
+    aerospike:
+      hosts: aerospike1:3000,aerospike2:3000   # host:port (port defaults to 3000)
+      namespace: brod
+      set: idempotency
+      ttl-seconds: 604800                       # dedup window (0 = namespace default, -1 = never expire)
+```
+
+`markProcessed` is an atomic create-only write: the first occurrence succeeds; a duplicate returns
+`false` (Aerospike `KEY_EXISTS_ERROR`). If your app already exposes an `IAerospikeClient` bean it is
+reused; otherwise one is created from the config above. To plug in a different store (Redis, JDBC, …),
+just define your own `IdempotencyStore` bean — it takes precedence over both built-ins.
 
 ## Why a starter (not the backend jar)
 
