@@ -14,6 +14,7 @@ import 'dashboard_screen.dart';
 import 'exposure_screen.dart';
 import 'failures_screen.dart';
 import 'incidents_screen.dart';
+import 'reconciliation_screen.dart';
 import 'trends_screen.dart';
 
 /// The authenticated shell: owns the request-scoped services ([ApiClient], [EventStream],
@@ -38,6 +39,7 @@ class _HomeShellState extends State<HomeShell> {
     AnomaliesScreen(),
     TrendsScreen(),
     ExposureScreen(),
+    ReconciliationScreen(),
     AssistantScreen(),
     ApprovalsScreen(),
     AuditSearchScreen(),
@@ -149,6 +151,7 @@ class _HomeShellState extends State<HomeShell> {
                 NavigationRailDestination(icon: Icon(Icons.troubleshoot), label: Text('Anomalies')),
                 NavigationRailDestination(icon: Icon(Icons.insights), label: Text('Trends')),
                 NavigationRailDestination(icon: Icon(Icons.account_balance), label: Text('Exposure')),
+                NavigationRailDestination(icon: Icon(Icons.fact_check), label: Text('Reconcile')),
                 NavigationRailDestination(icon: Icon(Icons.auto_awesome), label: Text('Ask Brod')),
                 NavigationRailDestination(icon: Icon(Icons.approval), label: Text('Approvals')),
                 NavigationRailDestination(icon: Icon(Icons.history), label: Text('Audit')),

@@ -589,3 +589,99 @@ class Anomaly {
         sampleCorrelationId: j['sampleCorrelationId'] as String?,
       );
 }
+
+/// Reconciliation / completeness report ({@code GET /api/reconciliation}).
+class ReconciliationReport {
+  final int totalCaptured;
+  final int completed;
+  final int open;
+  final double completionRate;
+  final int? oldestOpenAt;
+  final int generatedAt;
+  final List<ReconciliationGroup> bySource;
+  final List<ReconciliationGroup> byTopic;
+  final List<ReconciliationItem> oldestOpen;
+
+  const ReconciliationReport({
+    this.totalCaptured = 0,
+    this.completed = 0,
+    this.open = 0,
+    this.completionRate = 0,
+    this.oldestOpenAt,
+    this.generatedAt = 0,
+    this.bySource = const [],
+    this.byTopic = const [],
+    this.oldestOpen = const [],
+  });
+
+  factory ReconciliationReport.fromJson(Map<String, dynamic> j) => ReconciliationReport(
+        totalCaptured: (j['totalCaptured'] ?? 0) as int,
+        completed: (j['completed'] ?? 0) as int,
+        open: (j['open'] ?? 0) as int,
+        completionRate: ((j['completionRate'] ?? 0) as num).toDouble(),
+        oldestOpenAt: (j['oldestOpenAt'] as num?)?.toInt(),
+        generatedAt: (j['generatedAt'] ?? 0) as int,
+        bySource: _groups(j['bySource']),
+        byTopic: _groups(j['byTopic']),
+        oldestOpen: ((j['oldestOpen'] as List<dynamic>?) ?? const [])
+            .map((e) => ReconciliationItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+
+  static List<ReconciliationGroup> _groups(dynamic v) => ((v as List<dynamic>?) ?? const [])
+      .map((e) => ReconciliationGroup.fromJson(e as Map<String, dynamic>))
+      .toList();
+}
+
+/// Completeness for one grouping (source app / topic): completed vs open.
+class ReconciliationGroup {
+  final String name;
+  final int total;
+  final int completed;
+  final int open;
+  final double completionRate;
+  final int? oldestOpenAt;
+
+  const ReconciliationGroup({
+    required this.name,
+    required this.total,
+    required this.completed,
+    required this.open,
+    required this.completionRate,
+    this.oldestOpenAt,
+  });
+
+  factory ReconciliationGroup.fromJson(Map<String, dynamic> j) => ReconciliationGroup(
+        name: (j['name'] ?? '') as String,
+        total: (j['total'] ?? 0) as int,
+        completed: (j['completed'] ?? 0) as int,
+        open: (j['open'] ?? 0) as int,
+        completionRate: ((j['completionRate'] ?? 0) as num).toDouble(),
+        oldestOpenAt: (j['oldestOpenAt'] as num?)?.toInt(),
+      );
+}
+
+/// A single open (un-reconciled) failure, for the worklist.
+class ReconciliationItem {
+  final String correlationId;
+  final String topic;
+  final String team;
+  final String? state;
+  final int? firstFailedAt;
+
+  const ReconciliationItem({
+    required this.correlationId,
+    required this.topic,
+    required this.team,
+    this.state,
+    this.firstFailedAt,
+  });
+
+  factory ReconciliationItem.fromJson(Map<String, dynamic> j) => ReconciliationItem(
+        correlationId: (j['correlationId'] ?? '') as String,
+        topic: (j['topic'] ?? '') as String,
+        team: (j['team'] ?? '') as String,
+        state: j['state'] as String?,
+        firstFailedAt: (j['firstFailedAt'] as num?)?.toInt(),
+      );
+}

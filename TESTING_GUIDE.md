@@ -179,6 +179,34 @@ Point `reliability.exposure.amount-fields` / `currency-fields` at the field name
 
 ---
 
+## 4b. Reconciliation (completeness)
+
+**Purpose:** *"Has every failed transaction reached completion?"* Completed = `RESOLVED` (a retry
+succeeded) or `REPLAYED` (re-driven); everything else is the **open gap**. Shows completion % overall
+and per source/topic, plus the oldest unreconciled items as a worklist. **Read-only.**
+
+**Replicate:**
+```bash
+# Create a few failures (all start open):
+for i in 1 2 3; do
+  curl -s -X POST http://localhost:8080/api/failures -H "Content-Type: application/json" \
+    -d "{\"correlationId\":\"recon-$i\",\"source\":\"settlement.events\",\"sourceApp\":\"settlement-svc\",\"exceptionClass\":\"com.bank.SettlementException\"}" >/dev/null
+done
+# Close the gap on one by replaying it (then approve in Approvals, or set
+# RELIABILITY_APPROVAL_REQUIRED=false) so it reaches REPLAYED = completed:
+curl -s -X POST http://localhost:8080/api/failures/recon-1/replay \
+  -H "X-Actor: alice" -H "Content-Type: application/json" -d '{"reason":"reprocessed"}'
+```
+
+**Verify:** open **Reconcile** → completion % rises as items resolve/replay; the open gap and the
+oldest-unreconciled worklist shrink. REST: `curl http://localhost:8080/api/reconciliation`.
+
+> Scope note: this reconciles the **captured-failure backlog** (completed vs open). True
+> events-in-vs-out reconciliation (producers declaring expected totals per batch) is the planned
+> follow-on.
+
+---
+
 ## 5. Approvals (maker-checker / 4-eyes)
 
 **Purpose:** Every mutating action (replay / bulk-replay / quarantine) is a **request** a *different*

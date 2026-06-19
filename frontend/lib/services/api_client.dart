@@ -99,6 +99,13 @@ class ApiClient {
     return AnomalyReport.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Reconciliation / completeness — completed vs open failures (§16).
+  Future<ReconciliationReport> getReconciliation() async {
+    final res = await _http.get(Uri.parse('$_base/api/reconciliation'), headers: _headers);
+    _check(res);
+    return ReconciliationReport.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   /// Ask the read-only operations assistant a natural-language question (§ intelligence). The backend
   /// grounds a self-hosted model in the current incidents/failures (PII-masked) and returns a cited answer.
   Future<AssistantAnswer> askAssistant(String question) async {
