@@ -685,3 +685,50 @@ class ReconciliationItem {
         firstFailedAt: (j['firstFailedAt'] as num?)?.toInt(),
       );
 }
+
+/// A declared expectation reconciled against captured failures
+/// ({@code GET/POST /api/reconciliation/expectations}).
+class ExpectationReconciliation {
+  final String key;
+  final String source;
+  final String? label;
+  final int expectedCount;
+  final int failed;
+  final int recovered;
+  final int open;
+  final int completed;
+  final double completionRate;
+  final String status;
+  final int declaredAt;
+  final String? declaredBy;
+
+  const ExpectationReconciliation({
+    required this.key,
+    required this.source,
+    this.label,
+    this.expectedCount = 0,
+    this.failed = 0,
+    this.recovered = 0,
+    this.open = 0,
+    this.completed = 0,
+    this.completionRate = 0,
+    this.status = '',
+    this.declaredAt = 0,
+    this.declaredBy,
+  });
+
+  factory ExpectationReconciliation.fromJson(Map<String, dynamic> j) => ExpectationReconciliation(
+        key: (j['key'] ?? '') as String,
+        source: (j['source'] ?? '') as String,
+        label: j['label'] as String?,
+        expectedCount: (j['expectedCount'] ?? 0) as int,
+        failed: (j['failed'] ?? 0) as int,
+        recovered: (j['recovered'] ?? 0) as int,
+        open: (j['open'] ?? 0) as int,
+        completed: (j['completed'] ?? 0) as int,
+        completionRate: ((j['completionRate'] ?? 0) as num).toDouble(),
+        status: (j['status'] ?? '') as String,
+        declaredAt: (j['declaredAt'] ?? 0) as int,
+        declaredBy: j['declaredBy'] as String?,
+      );
+}

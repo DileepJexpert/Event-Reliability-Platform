@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../services/api_client.dart';
+import '../services/auth_service.dart';
 import '../widgets/common.dart';
 
-/// Reconciliation / completeness (§16): has every failed transaction reached completion? A failure is
-/// completed once it reached RESOLVED (a retry succeeded) or REPLAYED (re-driven); everything else is
-/// the open gap. Read-only projection of {@code GET /api/reconciliation} — headline completion, per
-/// source / topic breakdowns, and the oldest unreconciled items as a worklist.
+/// Reconciliation / completeness (§16). Two views in one:
+///  - <b>Backlog completeness</b>: of the captured failures, completed (RESOLVED / REPLAYED) vs the
+///    open gap, by source / topic, with the oldest unreconciled worklist.
+///  - <b>Declared batches</b>: producers declare "expect N events on a source"; Brod reports the
+///    shortfall (still-stuck) against that declared total. Read-only except declaring an expectation.
 class ReconciliationScreen extends StatefulWidget {
   const ReconciliationScreen({super.key});
 
@@ -18,6 +20,7 @@ class ReconciliationScreen extends StatefulWidget {
 
 class _ReconciliationScreenState extends State<ReconciliationScreen> {
   ReconciliationReport? _data;
+  List<ExpectationReconciliation> _expectations = const [];
   bool _loading = true;
   String? _error;
 
@@ -33,10 +36,12 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
       _error = null;
     });
     try {
-      final data = await context.read<ApiClient>().getReconciliation();
+      final api = context.read<ApiClient>();
+      final results = await Future.wait([api.getReconciliation(), api.getExpectations()]);
       if (!mounted) return;
       setState(() {
-        _data = data;
+        _data = results[0] as ReconciliationReport;
+        _expectations = results[1] as List<ExpectationReconciliation>;
         _loading = false;
       });
     } catch (e) {
@@ -52,6 +57,7 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isOperator = context.watch<AuthService>().state.isOperator;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
@@ -65,6 +71,12 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
                 const SizedBox(
                     width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
               const Spacer(),
+              if (isOperator)
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Declare batch'),
+                  onPressed: _declareExpectation,
+                ),
               IconButton(
                 tooltip: 'Refresh',
                 icon: const Icon(Icons.refresh, size: 20),
@@ -100,12 +112,119 @@ class _ReconciliationScreenState extends State<ReconciliationScreen> {
         ],
       ),
       const SizedBox(height: 24),
+      _declaredBatches(),
       _breakdown('By source', d.bySource),
       const SizedBox(height: 20),
       _breakdown('By topic', d.byTopic),
       const SizedBox(height: 20),
       _worklist(d.oldestOpen),
     ];
+  }
+
+  Widget _declaredBatches() {
+    if (_expectations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Declared batches', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Card(
+          elevation: 0,
+          margin: const EdgeInsets.only(bottom: 24),
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Colors.black12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              for (final e in _expectations)
+                ListTile(
+                  dense: true,
+                  title: Text('${e.label?.isNotEmpty == true ? e.label : e.key}  ·  ${e.source}',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('expected ${e.expectedCount} · ${e.completed} complete · '
+                      '${e.open} stuck · ${_pct(e.completionRate)}'),
+                  trailing: TagChip(
+                    label: e.status,
+                    color: e.status == 'RECONCILED' ? Colors.green : Colors.red,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _declareExpectation() async {
+    final keyCtrl = TextEditingController();
+    final sourceCtrl = TextEditingController();
+    final countCtrl = TextEditingController();
+    final labelCtrl = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Declare a reconciliation batch'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: keyCtrl,
+                autofocus: true,
+                decoration: const InputDecoration(
+                    labelText: 'Key', hintText: 'unique id, e.g. eod-2026-06-19'),
+              ),
+              TextField(
+                controller: sourceCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Source', hintText: 'topic, e.g. settlement.events'),
+              ),
+              TextField(
+                controller: countCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Expected count'),
+              ),
+              TextField(
+                controller: labelCtrl,
+                decoration: const InputDecoration(labelText: 'Label (optional)'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Declare')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final count = int.tryParse(countCtrl.text.trim()) ?? 0;
+    if (keyCtrl.text.trim().isEmpty || sourceCtrl.text.trim().isEmpty || count <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Key, source and a positive expected count are required')));
+      return;
+    }
+    try {
+      await context.read<ApiClient>().declareExpectation(
+            key: keyCtrl.text.trim(),
+            source: sourceCtrl.text.trim(),
+            expectedCount: count,
+            label: labelCtrl.text.trim(),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Batch declared')));
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Declare failed: $e')));
+    }
   }
 
   Widget _card(String title, String value, String sub, Color color) {

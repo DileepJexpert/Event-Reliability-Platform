@@ -106,6 +106,37 @@ class ApiClient {
     return ReconciliationReport.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Declared-expectation reconciliations — declared totals vs captured failures (§16).
+  Future<List<ExpectationReconciliation>> getExpectations() async {
+    final res = await _http.get(
+        Uri.parse('$_base/api/reconciliation/expectations'), headers: _headers);
+    _check(res);
+    return (jsonDecode(res.body) as List<dynamic>)
+        .map((e) => ExpectationReconciliation.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Declare a reconciliation expectation ("expect N events on a source") (§16).
+  Future<ExpectationReconciliation> declareExpectation({
+    required String key,
+    required String source,
+    required int expectedCount,
+    String? label,
+  }) async {
+    final res = await _http.post(
+      Uri.parse('$_base/api/reconciliation/expectations'),
+      headers: {..._headers, 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'key': key,
+        'source': source,
+        'expectedCount': expectedCount,
+        if (label != null && label.isNotEmpty) 'label': label,
+      }),
+    );
+    _check(res);
+    return ExpectationReconciliation.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
   /// Ask the read-only operations assistant a natural-language question (§ intelligence). The backend
   /// grounds a self-hosted model in the current incidents/failures (PII-masked) and returns a cited answer.
   Future<AssistantAnswer> askAssistant(String question) async {

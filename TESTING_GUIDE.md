@@ -201,9 +201,20 @@ curl -s -X POST http://localhost:8080/api/failures/recon-1/replay \
 **Verify:** open **Reconcile** → completion % rises as items resolve/replay; the open gap and the
 oldest-unreconciled worklist shrink. REST: `curl http://localhost:8080/api/reconciliation`.
 
-> Scope note: this reconciles the **captured-failure backlog** (completed vs open). True
-> events-in-vs-out reconciliation (producers declaring expected totals per batch) is the planned
-> follow-on.
+**Declared batches (events-in vs out):** a producer/batch can declare how many events it expects, and
+Brod reports the shortfall against that declared total:
+```bash
+curl -X POST http://localhost:8080/api/reconciliation/expectations -H "X-Actor: alice" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"eod-2026-06-19","source":"settlement.events","expectedCount":10000,"label":"EOD settlement"}'
+```
+Then `GET /api/reconciliation/expectations` (or the **Declared batches** panel / **Declare batch** button
+in the console) shows `expected`, `open` (still stuck) and completion % — `RECONCILED` once the stuck
+count hits zero.
+
+> Scope note: Brod sees failures, not the full event stream, so this reconciles events stuck in the
+> failure pipeline against the declared total — not events that never arrived at all (those would also
+> need the producer to report actual completions).
 
 ---
 
