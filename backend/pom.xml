@@ -126,6 +126,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!--
+                      Fork a fresh JVM per *IT class. Each @EmbeddedKafka test starts its own broker +
+                      Kafka Streams runtime (whose RocksDB state stores hold native file descriptors that
+                      are not fully released when the Spring context closes within the same JVM). Across
+                      a growing IT suite those descriptors accumulate and exhaust the OS limit ("Too many
+                      open files") on constrained CI runners. A new JVM per class reclaims them on exit.
+                    -->
+                    <reuseForks>false</reuseForks>
+                    <forkCount>1</forkCount>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
