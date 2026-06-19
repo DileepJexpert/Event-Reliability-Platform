@@ -362,6 +362,19 @@ curl -X POST http://localhost:8080/api/assistant/ask -H "Content-Type: applicati
 assistant disabled you get a friendly "not configured" reply (`grounded:false`). Every query is audited
 (acting user + question). The model only ever sees **PII-masked** context.
 
+### 7g. Compliance export (governance)
+Export a regulator-ready register of failed transactions and their disposition (metadata only — **no
+payloads**):
+```bash
+# JSON (everything):
+curl "http://localhost:8080/api/compliance/export"
+# CSV for a date range (epoch millis), saved to a file:
+curl "http://localhost:8080/api/compliance/export?format=csv&from=0&to=9999999999999" -o compliance-export.csv
+```
+**Verify:** the CSV has a header row and one row per failure (correlationId, firstFailedAt, state,
+classification, owningTeam, topic, exception, lastActor, reason, …). In a regulated deployment, gate this
+endpoint to a compliance / approver role.
+
 ---
 
 ## Reset
