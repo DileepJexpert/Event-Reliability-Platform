@@ -96,6 +96,8 @@ public class TopicProvisioner implements SmartLifecycle {
         list.add(compacted(topics.viewsAudit(), partitions, rf));
         // Maker-checker control requests: compacted by request id (the pending-approvals view).
         list.add(compacted(topics.controlRequests(), partitions, rf));
+        // Declared reconciliation expectations: compacted by expectation key.
+        list.add(compacted(topics.expectations(), partitions, rf));
 
         // Append-only immutable audit log: compaction OFF, long retention.
         list.add(appendOnly(topics.audit(), partitions, rf, props.topics().auditRetentionMs()));

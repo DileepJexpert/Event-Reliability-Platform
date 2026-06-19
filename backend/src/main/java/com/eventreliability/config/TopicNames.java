@@ -96,6 +96,11 @@ public class TopicNames {
         return n("views.audit");
     }
 
+    /** Compacted store of declared reconciliation expectations (batch expected-counts), keyed by key. */
+    public String expectations() {
+        return n("views.expectations");
+    }
+
     /** Control plane: replay / bulk-replay / quarantine commands with acting user (§13). */
     public String controlCommands() {
         return n("control.commands");
@@ -129,6 +134,7 @@ public class TopicNames {
         m.put("audit", audit());
         m.put("viewsIncidents", viewsIncidents());
         m.put("viewsAudit", viewsAudit());
+        m.put("expectations", expectations());
         m.put("controlCommands", controlCommands());
         m.put("controlRequests", controlRequests());
         m.put("incidents", incidents());
