@@ -21,6 +21,9 @@ One template per classification lane (see `SampleFailures.java`). The lane is de
 | `/send/poison` | `...MismatchedInputException` | **POISON → QUARANTINE** (parked) |
 | `/send/business` | `...BusinessException` ("account frozen") | **BUSINESS → ROUTE_TO_OWNER** |
 | `/send/unknown` | `java.lang.IllegalStateException` | **UNKNOWN → parked** for human review |
+| `/send/pii` | `...kyc.ValidationException` | payload shows **`[MASKED:*]`** in the console + counts toward **Exposure** |
+| `/send/financial?amount=2500&currency=USD` | `...SettlementException` | adds to **Exposure** (value at risk) |
+| `/send/novelty?count=8` | a fresh exception class | trips **adaptive anomaly detection** (novelty) |
 | `/send/all` | one of each | all of the above |
 | `/send/storm?count=600` | many identical timeouts | trips windowed **pattern detection → raises an incident** |
 
@@ -33,6 +36,19 @@ By default it also auto-sends one of each on startup (`DLQ_AUTOSEND=false` to di
 - Java 21 and Maven (you already have these — the platform needs them).
 - The platform's **Kafka broker running** and the **backend running** (the backend provisions the
   topics; the broker has auto-create disabled, so the DLQ topic doesn't exist until then).
+- **Install the Brod starter once** (this sample depends on it for the auto-DLQ flow):
+  ```bash
+  cd ../../brod-spring-boot-starter && mvn install
+  ```
+
+## Auto-DLQ via the `brod-spring-boot-starter`
+
+The realistic `POST /produce` flow shows the starter in action: this app's consumer
+(`SimulatedConsumer`) fails to process the message, Spring Kafka retries it, and when the retries are
+exhausted the **starter** publishes the record to the platform DLQ — with the full header contract
+stamped — **with no hand-written recoverer** (we deleted the old `SimConsumerConfig`; adoption is just
+the dependency + `brod.*` config in `application.yml`). The `/send/*` endpoints still stamp the contract
+by hand, so you can see the raw contract too.
 
 ---
 

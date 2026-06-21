@@ -30,6 +30,14 @@
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
         </dependency>
+        <!-- The Brod onboarding starter: auto-DLQ capture on exhausted retries (no hand-written
+             recoverer needed) + an IdempotencyStore. Build it first: cd ../../brod-spring-boot-starter
+             && mvn install. See this module's README. -->
+        <dependency>
+            <groupId>com.brod</groupId>
+            <artifactId>brod-spring-boot-starter</artifactId>
+            <version>0.1.0</version>
+        </dependency>
     </dependencies>
 
     <build>

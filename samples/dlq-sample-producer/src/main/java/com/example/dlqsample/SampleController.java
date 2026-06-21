@@ -38,7 +38,8 @@ public class SampleController {
         return Map.of(
                 "dlqTopic", producer.topic(),
                 "realisticFlow", "POST /produce  (body = your JSON payload) -> produced to '" + businessTopic
-                        + "'; the sample consumer retries, then routes failures to the DLQ",
+                        + "'; the sample consumer retries, then the brod-spring-boot-starter auto-captures"
+                        + " the exhausted record to the DLQ (no hand-written recoverer)",
                 "send", List.of(
                         "POST /send/transient",
                         "POST /send/infrastructure",
