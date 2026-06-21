@@ -45,11 +45,19 @@ public class SampleController {
                         "POST /send/poison",
                         "POST /send/business",
                         "POST /send/unknown",
-                        "POST /send/all                  (one of each)",
-                        "POST /send/storm?count=600      (shared root cause -> raises an incident)"),
+                        "POST /send/pii                          (PII masking + Exposure)",
+                        "POST /send/financial?amount=2500&currency=USD  (Exposure)",
+                        "POST /send/novelty?count=8              (Anomalies — novelty)",
+                        "POST /send/all                          (one of each)",
+                        "POST /send/storm?count=600              (shared root cause -> raises an incident)"),
                 "observePlatform", List.of(
                         "GET http://localhost:8080/api/failures",
                         "GET http://localhost:8080/api/incidents",
+                        "GET http://localhost:8080/api/exposure",
+                        "GET http://localhost:8080/api/anomalies",
+                        "GET http://localhost:8080/api/reconciliation",
+                        "GET http://localhost:8080/api/trends",
+                        "GET http://localhost:8080/api/compliance/export",
                         "GET http://localhost:8080/actuator/prometheus"));
     }
 
@@ -76,6 +84,29 @@ public class SampleController {
     @PostMapping("/send/unknown")
     public Map<String, String> sendUnknown() {
         return one(SampleFailures.unknown());
+    }
+
+    @PostMapping("/send/pii")
+    public Map<String, String> sendPii() {
+        return one(SampleFailures.pii());
+    }
+
+    @PostMapping("/send/financial")
+    public Map<String, String> sendFinancial(
+            @RequestParam(name = "amount", defaultValue = "1000.0") double amount,
+            @RequestParam(name = "currency", defaultValue = "USD") String currency) {
+        return one(SampleFailures.financial(amount, currency));
+    }
+
+    @PostMapping("/send/novelty")
+    public Map<String, Object> sendNovelty(@RequestParam(name = "count", defaultValue = "8") int count) {
+        SampleFailure template = SampleFailures.novelty();
+        int sent = producer.sendStorm(template, count);
+        return Map.of(
+                "sent", sent,
+                "rootCause", template.exceptionClass(),
+                "note", "a fresh signature in volume -> shows on the Anomalies tab (novelty);"
+                        + " needs the anomaly min-count met (default 5)");
     }
 
     @PostMapping("/send/all")

@@ -387,9 +387,29 @@ docker compose down -v && docker compose up -d   # -v drops the broker volume
 
 ---
 
-## One-shot smoke test (fills every screen)
+## One-shot: exercise EVERY use case
+
+The fastest way to light up every screen and feature against a running backend (no Flutter or sample
+app needed — it drives the HTTP API directly):
+
 ```bash
-curl -X POST http://localhost:8081/send/all                 # Dashboard, Failures, Trends, Audit
-curl -X POST "http://localhost:8081/send/storm?count=10"    # Incidents + per-team alert (log)
-# then in the console: open a parked failure -> Request replay -> switch user -> Approvals -> Approve
+./scripts/demo-all-usecases.sh            # defaults to http://localhost:8080
+# or: ./scripts/demo-all-usecases.sh http://my-host:8080
+```
+
+It walks all 11 use cases in order — classification, PII masking, exposure, incidents, anomalies,
+backlog + declared-expectation reconciliation, trends, maker-checker replay, compliance export and the
+assistant — creating the data and printing what to check. Run with the **demo profile** so incidents
+and anomalies trip on a handful of events. (`jq` + `base64` make the output prettier and enable the
+auto-approve step.)
+
+### Via the sample app (Kafka path)
+The sample (`:8081`) also generates failures over real Kafka, including scenario endpoints for the newer
+features:
+```bash
+curl -X POST http://localhost:8081/send/all                            # one of each lane
+curl -X POST "http://localhost:8081/send/storm?count=10"               # Incidents
+curl -X POST http://localhost:8081/send/pii                            # PII masking + Exposure
+curl -X POST "http://localhost:8081/send/financial?amount=2500&currency=USD"  # Exposure
+curl -X POST "http://localhost:8081/send/novelty?count=8"              # Anomalies (novelty)
 ```
